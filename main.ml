@@ -45,8 +45,7 @@ let main () =
      match c with
      | SubStatic_min_graph ->
         let smg = Static_min_graph.create !gtfs_dir !min_change_time in
-        Static_min_graph.output smg !output;
-        Static_min_graph.dot_output smg (!output ^ ".gv")
+        Static_min_graph.output smg !output
      | SubComparison ->
         let smg = Static_min_graph.create !gtfs_dir !min_change_time in
         Static_min_graph.comparison smg !output !gtfs_dir

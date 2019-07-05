@@ -27,19 +27,26 @@ let split fmt line =
 
 let input_line parse = function
   | File (chan, fmt) ->
-     let () = Pervasives.input_line chan |> split fmt |> parse in ()
+     let line = input_line chan in
+     let last = String.length line - 1 in
+     (if String.get line last = '\r' then String.sub line 0 last else line)
+     |> split fmt |> parse
   | Gzip (chan, b, fmt) ->
      let str = ref None in
      while !str = None do
-       begin match Bytes.index_from_upto b.buf 0 b.len '\n' with
+       match Bytes.index_from_upto b.buf 0 b.len '\n' with
        | None ->
           b.len <- b.len + Gzip.input chan b.buf b.len (b.cap - b.len);
           if b.len = 0 then raise End_of_file;
+       | Some i when i > 0 && Bytes.get b.buf (i-1) = '\r' ->
+          str := Some (Bytes.sub_string b.buf 0 (i-1));
+          b.len <- b.len - i;
+          Bytes.print_upto b.buf b.len;
+          if b.len > 0 then Bytes.blit b.buf (i+1) b.buf 0 b.len
        | Some i ->
           str := Some (Bytes.sub_string b.buf 0 i);
           b.len <- b.len - (i+1);
           if b.len > 0 then Bytes.blit b.buf (i+1) b.buf 0 b.len
-       end;
      done;
      match !str with
      | None -> assert false
@@ -67,8 +74,18 @@ let close_in = function
 let input_all f path fmt =
   let ic = open_in path fmt in
   begin
+    let line = ref 1 in
     try
       while true do
-        input_line f ic done
-    with End_of_file -> () end;
+        input_line f ic;
+        incr line
+      done
+    with End_of_file -> ()
+       | Failure e ->
+          let e = path ^ " at line " ^ string_of_int !line ^ ": " ^ e in
+          raise (Failure e)
+       | e ->
+          Printf.eprintf "%s at line %d\n" path !line;
+          raise e
+  end;
   close_in ic;
