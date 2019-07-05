@@ -35,14 +35,15 @@ let iteri f vec =
     f i vec.data.(i)
   done
 
-(* let map (f : 'a -> 'b) vec =
- *   let data = Array.make vec.len (f vec.default) in
- *   for i = 0 to vec.len - 1 do
- *     data.(i) <- f vec.data.(i)
- *   done;
- *   {vec with cap = vec.len; data}
- *
- * let mapi f vec =
+let map f vec =
+  let default = f vec.default in
+  let data = Array.make vec.len default in
+  for i = 0 to vec.len - 1 do
+    data.(i) <- f vec.data.(i)
+  done;
+  {data; len = vec.len; cap = vec.len; default }
+
+(* let mapi f vec =
  *   let data = Array.make vec.len (f (-1) vec.default) in
  *   for i = 0 to vec.len - 1 do
  *     data.(i) <- f i vec.data.(i)
@@ -63,3 +64,25 @@ let fold_left2 f a vec1 vec2 =
     a := f !a vec1.data.(i) vec2.data.(i)
   done;
   !a
+
+let lower_bound vec first last value cmp =
+  assert (0 <= first && first <= last && last < vec.len);
+  let left, right = ref first, ref last in
+  while !left < !right do
+    let mid = (!left + !right) / 2 in
+    if cmp vec.data.(mid) value then
+      left := mid + 1
+    else
+      right := mid
+  done;
+  if cmp vec.data.(!left) value then raise Exit else !left
+
+let reverse vec =
+  assert (vec.len <> 0);
+  for i = 0 to (vec.len - 1) / 2 do
+    let old = vec.data.(i) in
+    vec.data.(i) <- vec.data.(vec.len - 1 - i);
+    vec.data.(vec.len - 1 - i) <- old
+  done
+
+let copy vec = { vec with data = Array.copy vec.data; cap = vec.cap }

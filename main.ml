@@ -1,6 +1,4 @@
-type graph
-
-let comparison x y = ()
+module Smg = Static_min_graph
 
 type subcommand = SubStatic_min_graph | SubComparison
 
@@ -24,7 +22,8 @@ let main () =
                         ("-chg", Arg.Set_int min_change_time, "minimum change time")];
            subcommand := Some SubStatic_min_graph
         | "comparison" ->
-           speclist := [("-o", Arg.Set_string output, "output graph");];
+           speclist := [("-o", Arg.Set_string output, "output graph");
+                        ("-chg", Arg.Set_int min_change_time, "minimum change time")];
            subcommand := Some SubComparison
         | _ -> failwith "Unrecognized subcommand."
       end
@@ -48,6 +47,8 @@ let main () =
         let smg = Static_min_graph.create !gtfs_dir !min_change_time in
         Static_min_graph.output smg !output;
         Static_min_graph.dot_output smg (!output ^ ".gv")
-     | SubComparison -> comparison !output !gtfs_dir
+     | SubComparison ->
+        let smg = Static_min_graph.create !gtfs_dir !min_change_time in
+        Static_min_graph.comparison smg !output !gtfs_dir
 
 let () = main ()

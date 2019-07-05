@@ -23,7 +23,7 @@ type t =
   | Gzip of Gzip.in_channel * buf * format
 
 let split fmt line =
-  String.split_on_char (match fmt with Csv -> ',' | Tuples -> ',') line
+  String.split_on_char (match fmt with Csv -> ',' | Tuples -> ' ') line
 
 let input_line parse = function
   | File (chan, fmt) ->
