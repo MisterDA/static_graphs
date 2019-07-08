@@ -65,17 +65,60 @@ let fold_left2 f a vec1 vec2 =
   done;
   !a
 
-let lower_bound vec first last value cmp =
-  assert (0 <= first && first <= last && last < vec.len);
-  let left, right = ref first, ref last in
-  while !left < !right do
-    let mid = (!left + !right) / 2 in
-    if cmp vec.data.(mid) value then
-      left := mid + 1
+   (*     ForwardIt it;
+    typename std::iterator_traits<ForwardIt>::difference_type count, step;
+    count = std::distance(first, last);
+
+    while (count > 0) {
+        it = first;
+        step = count / 2;
+        std::advance(it, step);
+        if (comp(*it, value)) {
+            first = ++it;
+            count -= step + 1;
+        }
+        else
+            count = step;
+    }
+    return first; *) *)
+
+let lower_bound vec first last p =
+  let first, last, count = ref first, ref last, ref (last - first) in
+  while !count > 0 do
+    let step = !count / 2 in
+    let it = !first + step in
+    if p vec.data.(it) then
+      (first := it + 1; count := !count - (step + 1))
     else
-      right := mid
+      count := step
   done;
-  if cmp vec.data.(!left) value then raise Exit else !left
+  !first
+
+let upper_bound vec first last p = lower_bound vec first last p
+
+let rec find_first vec first p =
+  if first >= vec.len then None
+  else if p vec.data.(first) then Some first
+  else find_first vec (first+1) p
+
+let find_first vec first p =
+  let p = fun v -> not (p v) in
+  if p vec.data.(vec.len - 1) then None
+  else Some (lower_bound vec first (vec.len - 1) p)
+
+let find_last vec first p =
+  let rec aux i =
+    if i < first then None
+    else if p vec.data.(i) then Some i
+    else aux (i-1)
+  in
+  aux (vec.len - 1)
+
+let find_last vec first p =
+  if p vec.data.(vec.len - 1) then Some (vec.len - 1) else
+  match upper_bound vec first (vec.len - 1) p  with
+  | 0 -> None
+  | i -> Some (i - 1)
 
 let reverse vec =
   assert (vec.len <> 0);

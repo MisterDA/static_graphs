@@ -2,6 +2,9 @@ module DG = Graph.Pack.Digraph
 module Option = struct
   let get = function None -> raise (invalid_arg "") | Some v -> v
   let value ~default = function None -> default | Some v -> v
+  let map f = function None -> None | Some v -> f v
+  let map_default f ~default = function None -> default | Some v -> f v
+  let iter f = function None -> () | Some v -> f v
 end
 module List = struct
   include List
@@ -101,7 +104,7 @@ let parse_stop_times smg idx trips gtfs_dir : ttbl =
   File.input_all (Gtfs.parse_stop_times aux) (gtfs_dir ^ "stop_times.csv") File.Csv;
   ttbl
 
-let output_ttbl ttbl =
+let print_ttbl ttbl =
   Hashtbl.iter (fun route_id ttbl_stop ->
       Printf.printf "route: %d\n" route_id;
       Vector.iteri (fun i {events; _} ->
@@ -315,26 +318,28 @@ let timeprofiles smg outhubs inhubs src dst deptime =
       | _ -> assert false
     in
     match path with
-    | src :: _ -> aux ([src], path) |> List.rev
+    | src :: _ -> aux ([src], path)
     | _ -> assert false
   in
 
+  let get_vertices u v =
+    Vector.get smg.vertices (DG.V.label u),
+    Vector.get smg.vertices (DG.V.label v)
+  in
+  let events ttbl r seq = (Vector.get (Hashtbl.find ttbl r) (seq - 1)).events in
+
   let earliest_arrival_time ttbl transfer_patterns deptime =
     let rec aux first arrtime = function
-      | [v] -> arrtime
+      | [v] -> Some arrtime
       | u :: v :: tp ->
-         let u, ut = Vector.get smg.vertices (DG.V.label u) in
-         let v, vt = Vector.get smg.vertices (DG.V.label v) in
-         let events r seq = (Vector.get (Hashtbl.find ttbl r) (seq - 1)).events in
+         let (ur, ut), (vr, vt) = get_vertices u v in
          begin match ut, vt with
          | Departure (ur, useq), Arrival (vr, vseq) ->
-            let uevs, vevs = events ur useq, events vr vseq in
-            let cmp vec value = vec.tdep < value in
-            let i = Vector.lower_bound uevs first (Vector.length uevs - 1)
-                      arrtime cmp in
-            aux i (Vector.get vevs i).tarr (v :: tp)
-         | Arrival _, Departure _
-           | Arrival _, Arrival _ | Departure _, Departure _ -> assert false
+            let uevs, vevs = events ttbl ur useq, events ttbl vr vseq in
+            Vector.find_first uevs first (fun vec -> arrtime <= vec.tdep)
+            |> Option.map (fun i -> aux i (Vector.get vevs i).tarr (v :: tp))
+         | Arrival _, Arrival _ | Departure _, Departure _
+           | Arrival _, Departure _ -> assert false
          | _, _ ->
             let delay = DG.find_edge smg.graph u v |> DG.E.label in
             aux 0 (arrtime + delay) (v :: tp)
@@ -344,29 +349,21 @@ let timeprofiles smg outhubs inhubs src dst deptime =
     aux 0 deptime transfer_patterns
   in
 
-  let last_departure_time ttbl_rev transfer_patterns_rev arrtime =
+  let last_departure_time ttbl transfer_patterns_rev arrtime =
     let rec aux first deptime = function
-      | [v] -> deptime
+      | [v] -> Some deptime
       | v :: u :: tp ->
-         let u, ut = Vector.get smg.vertices (DG.V.label u) in
-         let v, vt = Vector.get smg.vertices (DG.V.label v) in
-         let events r seq = (Vector.get (Hashtbl.find ttbl_rev r) (seq - 1)).events in
-         begin match vt, ut with
-         | Arrival (vr, vseq), Departure (ur, useq) ->
-            let uevs, vevs = events ur useq, events vr vseq in
-            let cmp vec value = vec.tarr > value in
-            let i = Vector.lower_bound vevs first (Vector.length vevs - 1)
-                      deptime cmp in
-            Printf.printf "%d@%d -> %d@%d\n" (DG.V.label v) deptime
-              (DG.V.label u) ((Vector.get uevs i).tdep);
-            aux i (Vector.get uevs i).tdep (u :: tp)
-         | Departure _, Arrival _
-           | Arrival _, Arrival _ | Departure _, Departure _ -> assert false
+         let (ur, ut), (vr, vt) = get_vertices u v in
+         begin match ut, vt with
+         | Departure (ur, useq), Arrival (vr, vseq) ->
+            let uevs, vevs = events ttbl ur useq, events ttbl vr vseq in
+            Vector.find_last vevs first (fun vec -> vec.tarr <= deptime)
+            |> Option.map (fun i -> aux i (Vector.get uevs i).tdep (u :: tp))
+         | Arrival _, Arrival _ | Departure _, Departure _
+           | Arrival _, Departure _ -> assert false
          | _, _ ->
             let delay = DG.find_edge smg.graph u v |> DG.E.label in
-            Printf.printf "%d@%d -> %d@%d\n" (DG.V.label v) deptime
-              (DG.V.label u) (deptime + delay);
-            aux 0 (deptime + delay) (u :: tp)
+            aux first (deptime - delay) (u :: tp)
          end
       | _ -> assert false
     in
@@ -380,21 +377,24 @@ let timeprofiles smg outhubs inhubs src dst deptime =
    * in *)
 
   let path = build_path src dst in
-  let tp = build_transfer_patterns path in
-  let tp_rev = List.rev tp in
+  let tp_rev = build_transfer_patterns path in
+  let tp = List.rev tp_rev in
 
-  let rec build_time_profile tipr deptime =
-    let eat = earliest_arrival_time (Option.get smg.ttbl) tp deptime in
-    let ldt = -last_departure_time (Option.get smg.ttbl_rev) tp_rev (-eat) in
-    match tipr with
-    | (ldt', eat') :: _ when eat' = eat && ldt = ldt' -> tipr
-    | _ -> build_time_profile ((ldt, eat) :: tipr) (ldt+1)
+  let rec build_time_profile tipr deptime old_ldt =
+    match earliest_arrival_time (Option.get smg.ttbl) tp deptime with
+    | None -> tipr
+    | Some eat ->
+       match last_departure_time (Option.get smg.ttbl) tp_rev eat with
+       | None -> tipr
+       | Some ldt ->
+          match tipr with
+          | (_, ldt', eat') :: _ when eat' = eat && ldt = ldt' -> tipr
+          | _ -> build_time_profile ((old_ldt, ldt, eat) :: tipr) (ldt+1) ldt
   in
-  build_time_profile [] deptime |> List.rev
+  build_time_profile [] deptime deptime |> List.rev
 
 let comparison smg output gtfs_dir =
   let outhubs, inhubs = hl_input smg (gtfs_dir ^ "output.hl") in
   let (src, _), (dst, _) = Vector.get smg.vertices 0, Vector.get smg.vertices 5 in
   let deptime = 0 in
-  let tp = timeprofiles smg outhubs inhubs src dst deptime in
-  List.iter (fun (eat, ldp) -> Printf.printf "%d -> %d\n" eat ldp) tp
+  timeprofiles smg outhubs inhubs src dst deptime
