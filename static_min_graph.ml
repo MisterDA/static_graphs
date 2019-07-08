@@ -397,4 +397,7 @@ let comparison smg output gtfs_dir =
   let outhubs, inhubs = hl_input smg (gtfs_dir ^ "output.hl") in
   let (src, _), (dst, _) = Vector.get smg.vertices 0, Vector.get smg.vertices 5 in
   let deptime = 0 in
+  let oc = open_out output in
   timeprofiles smg outhubs inhubs src dst deptime
+  |> List.iter (fun (old, ldt, eat) -> Printf.fprintf oc "%d %d %d\n" old ldt eat);
+  close_out oc
