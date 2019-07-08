@@ -6,10 +6,6 @@ type route_id = int
 type stop_times = { trip_id : trip_id; arrival : time; departure : time;
                     station_id : station_id; stop_sequence : int }
 
-let print_stop_times st =
-  Printf.printf "%d,%d,%d,%s,%d\n" st.trip_id st.arrival st.departure
-    st.station_id st.stop_sequence
-
 let parse_stop_times f l =
   try match l with
       | [trip_id; arrival; departure; station_id; stop_sequence] ->

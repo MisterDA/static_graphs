@@ -97,14 +97,14 @@ let parse_stop_times smg idx trips gtfs_dir : ttbl =
   File.input_all (Gtfs.parse_stop_times aux) (gtfs_dir ^ "stop_times.csv") File.Csv;
   ttbl
 
-let print_ttbl ttbl =
-  Hashtbl.iter (fun route_id ttbl_stop ->
-      Printf.printf "route: %d\n" route_id;
-      Vector.iteri (fun i {events; _} ->
-          Printf.printf "%i:\n" i;
-          Vector.iter (fun {tarr; tdep} -> Printf.printf "  %d:%d\n" tarr tdep) events)
-        ttbl_stop)
-    ttbl
+(* let print_ttbl ttbl =
+ *   Hashtbl.iter (fun route_id ttbl_stop ->
+ *       Printf.printf "route: %d\n" route_id;
+ *       Vector.iteri (fun i {events; _} ->
+ *           Printf.printf "%i:\n" i;
+ *           Vector.iter (fun {tarr; tdep} -> Printf.printf "  %d:%d\n" tarr tdep) events)
+ *         ttbl_stop)
+ *     ttbl *)
 
 let parse_transfers smg symmetrize gtfs_dir =
   let aux (Gtfs.{ departure; arrival; transfer }) =
@@ -146,15 +146,15 @@ let create gtfs_dir min_change_time =
     let e = DG.E.create vdep t varr in
     DG.add_edge_e smg.graph e
   in
-  Hashtbl.iter (fun route_id stops ->
+  Hashtbl.iter (fun _ stops ->
       ignore (Vector.fold_left (fun prev stop ->
                   match prev with
-          | None -> Some (add_stop stop, stop)
-          | Some ((prev_arr, prev_dep), prev) ->
-             let stop_arr, stop_dep = add_stop stop in
-             add_connection prev_dep stop_arr prev.events stop.events;
-             Some ((stop_arr, stop_dep), stop))
-        None stops))
+                  | None -> Some (add_stop stop, stop)
+                  | Some ((_, prev_dep), prev) ->
+                     let stop_arr, stop_dep = add_stop stop in
+                     add_connection prev_dep stop_arr prev.events stop.events;
+                     Some ((stop_arr, stop_dep), stop))
+                None stops))
     ttbl;
   smg
 
@@ -203,7 +203,7 @@ type hub_label = { hub : DG.V.t; next_hop : DG.V.t; length : int }
 type hubs = (DG.V.t, hub_label Vector.t) Hashtbl.t
 let dummy_label = { hub = dummy_vertex; next_hop = dummy_vertex; length = -1 }
 
-let hl_input smg path =
+let hl_input smg path : hubs * hubs =
   let outhubs, inhubs = Hashtbl.create 42, Hashtbl.create 42 in
   let find_vertex v = Vector.get smg.vertices (int_of_string v) |> fst in
   let aux = function
@@ -227,26 +227,26 @@ let hl_input smg path =
   File.input_all aux path File.Tuples;
   outhubs, inhubs
 
-let print_outhubs oc smg v outhubs =
-  Vector.iter (fun {hub; next_hop; length} ->
-      Printf.fprintf oc  "o %d:%s %d:%s %d:%s %d\n"
-        (DG.V.label v) (pretty_name smg v)
-        (DG.V.label next_hop) (pretty_name smg next_hop)
-        (DG.V.label hub) (pretty_name smg hub)
-        length)
-    outhubs
-let print_inhubs oc smg v inhubs =
-  Vector.iter (fun {hub; next_hop; length} ->
-      Printf.fprintf oc "i %d:%s %d:%s %d:%s %d\n"
-        (DG.V.label hub) (pretty_name smg hub)
-        (DG.V.label next_hop) (pretty_name smg next_hop)
-        (DG.V.label v) (pretty_name smg v)
-        length)
-    inhubs
-let print_hubs smg outhubs inhubs =
-  let oc = stdout in
-  Hashtbl.iter (print_inhubs oc smg) inhubs;
-  Hashtbl.iter (print_outhubs oc smg) outhubs
+(* let print_outhubs oc smg v outhubs =
+ *   Vector.iter (fun {hub; next_hop; length} ->
+ *       Printf.fprintf oc  "o %d:%s %d:%s %d:%s %d\n"
+ *         (DG.V.label v) (pretty_name smg v)
+ *         (DG.V.label next_hop) (pretty_name smg next_hop)
+ *         (DG.V.label hub) (pretty_name smg hub)
+ *         length)
+ *     outhubs
+ * let print_inhubs oc smg v inhubs =
+ *   Vector.iter (fun {hub; next_hop; length} ->
+ *       Printf.fprintf oc "i %d:%s %d:%s %d:%s %d\n"
+ *         (DG.V.label hub) (pretty_name smg hub)
+ *         (DG.V.label next_hop) (pretty_name smg next_hop)
+ *         (DG.V.label v) (pretty_name smg v)
+ *         length)
+ *     inhubs
+ * let print_hubs smg outhubs inhubs =
+ *   let oc = stdout in
+ *   Hashtbl.iter (print_inhubs oc smg) inhubs;
+ *   Hashtbl.iter (print_outhubs oc smg) outhubs *)
 
 let timeprofiles smg outhubs inhubs src dst deptime =
   let reachability src dst =
@@ -307,9 +307,9 @@ let timeprofiles smg outhubs inhubs src dst deptime =
 
   let earliest_arrival_time ttbl transfer_patterns deptime =
     let rec aux first arrtime = function
-      | [v] -> Some arrtime
+      | [_] -> Some arrtime
       | u :: v :: tp ->
-         let (ur, ut), (vr, vt) = get_vertices u v in
+         let (_, ut), (_, vt) = get_vertices u v in
          begin match ut, vt with
          | Departure (ur, useq), Arrival (vr, vseq) ->
             let uevs, vevs = events ttbl ur useq, events ttbl vr vseq in
@@ -328,9 +328,9 @@ let timeprofiles smg outhubs inhubs src dst deptime =
 
   let last_departure_time ttbl transfer_patterns_rev arrtime =
     let rec aux first deptime = function
-      | [v] -> Some deptime
+      | [_] -> Some deptime
       | v :: u :: tp ->
-         let (ur, ut), (vr, vt) = get_vertices u v in
+         let (_, ut), (_ , vt) = get_vertices u v in
          begin match ut, vt with
          | Departure (ur, useq), Arrival (vr, vseq) ->
             let uevs, vevs = events ttbl ur useq, events ttbl vr vseq in

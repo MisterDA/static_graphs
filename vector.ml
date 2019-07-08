@@ -83,7 +83,7 @@ let fold_left2 f a vec1 vec2 =
     return first; *) *)
 
 let lower_bound vec first last p =
-  let first, last, count = ref first, ref last, ref (last - first) in
+  let first, count = ref first, ref (last - first) in
   while !count > 0 do
     let step = !count / 2 in
     let it = !first + step in

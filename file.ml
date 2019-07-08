@@ -9,7 +9,8 @@ module Bytes = struct
       done;
       None
     with Exit -> Some (!idx)
-  let print buf = Seq.iter (fun c -> print_char c) (Bytes.to_seq buf)
+
+  (* let print buf = Seq.iter (fun c -> print_char c) (Bytes.to_seq buf) *)
   let print_upto buf len =
     for i = 0 to min (Bytes.length buf) len - 1 do
       print_char (Bytes.get buf i)
@@ -58,11 +59,11 @@ let open_in path fmt =
       if String.sub path (n - 3) 3 = ".gz" then
         try Gzip (Gzip.open_in path,
                   {buf = Bytes.create 256; len = 0; cap = 256}, fmt)
-        with e -> File (open_in (String.sub path 0 (n - 3)), fmt)
+        with _ -> File (open_in (String.sub path 0 (n - 3)), fmt)
       else
         try Gzip (Gzip.open_in (path ^ ".gz"),
                   {buf = Bytes.create 256; len = 0; cap = 256}, fmt)
-        with e -> File (open_in path, fmt)
+        with _ -> File (open_in path, fmt)
     end in
   match fmt with
   | Tuples -> f
