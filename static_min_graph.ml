@@ -36,7 +36,7 @@ type t = {
     graph : DG.t;
     names : string Vector.t;
     vertices : (DG.V.t * stop_type) Vector.t; (* to provide O(1) access *)
-    mutable ttbl : ttbl option; mutable ttbl_rev : ttbl option;
+    mutable ttbl : ttbl option;
   }
 
 let dummy_vertex = DG.V.create (-1)
@@ -113,21 +113,6 @@ let print_ttbl ttbl =
         ttbl_stop)
     ttbl
 
-let ttbl_reverse ttbl =
-  let ttbl' = Hashtbl.create (Hashtbl.length ttbl) in
-  Hashtbl.iter (fun k stops ->
-      let open Vector in
-      map (fun (stop) ->
-          let events = copy stop.events
-                       |> map (fun {tarr; tdep} -> {tarr = -tarr; tdep = -tdep})
-          in
-          (* if length events > 1 then reverse events; *)
-          {stop with events})
-        (copy stops)
-      |> Hashtbl.add ttbl' k)
-    ttbl;
-  ttbl'
-
 let parse_transfers smg symmetrize gtfs_dir =
   let aux (Gtfs.{ departure; arrival; transfer }) =
     let departure, _ = Vector.get smg.vertices (int_of_string departure) in
@@ -144,13 +129,12 @@ let create gtfs_dir min_change_time =
   let smg = parse_stations {graph = DG.create ~size:42 (); max_station = None;
                             names = Vector.make 1 "";
                             vertices = Vector.make 1 (dummy_vertex, Station);
-                            ttbl = None; ttbl_rev = None}
+                            ttbl = None;}
               gtfs_dir in
   parse_transfers smg true gtfs_dir;
   let trips = parse_trips gtfs_dir in
   let ttbl = parse_stop_times smg (Option.get smg.max_station) trips gtfs_dir in
-  let ttbl_rev = ttbl_reverse ttbl in
-  smg.ttbl <- Some ttbl; smg.ttbl_rev <- Some ttbl_rev;
+  smg.ttbl <- Some ttbl;
   let add_stop stop =
     let t = Vector.fold_left (fun wait {tarr; tdep} -> min wait (tdep - tarr))
               max_int stop.events in
@@ -197,7 +181,7 @@ let load path =
         with End_of_file -> () end;
   {graph; max_station = None; names = Vector.make 1 "";
    vertices = Vector.make 1 (dummy_vertex, Station);
-   ttbl = None; ttbl_rev = None}
+   ttbl = None; }
 
 let pretty_name smg v = Vector.get smg.names (DG.V.label v)
 

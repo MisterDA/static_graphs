@@ -94,29 +94,14 @@ let lower_bound vec first last p =
   done;
   !first
 
-let upper_bound vec first last p = lower_bound vec first last p
-
-let rec find_first vec first p =
-  if first >= vec.len then None
-  else if p vec.data.(first) then Some first
-  else find_first vec (first+1) p
-
 let find_first vec first p =
   let p = fun v -> not (p v) in
   if p vec.data.(vec.len - 1) then None
   else Some (lower_bound vec first (vec.len - 1) p)
 
 let find_last vec first p =
-  let rec aux i =
-    if i < first then None
-    else if p vec.data.(i) then Some i
-    else aux (i-1)
-  in
-  aux (vec.len - 1)
-
-let find_last vec first p =
   if p vec.data.(vec.len - 1) then Some (vec.len - 1) else
-  match upper_bound vec first (vec.len - 1) p  with
+  match lower_bound vec first (vec.len - 1) p  with
   | 0 -> None
   | i -> Some (i - 1)
 
