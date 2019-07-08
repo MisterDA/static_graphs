@@ -1,11 +1,4 @@
 module DG = Graph.Pack.Digraph
-module Option = struct
-  let get = function None -> raise (invalid_arg "") | Some v -> v
-  let value ~default = function None -> default | Some v -> v
-  let map f = function None -> None | Some v -> f v
-  let map_default f ~default = function None -> default | Some v -> f v
-  let iter f = function None -> () | Some v -> f v
-end
 module List = struct
   include List
   let unique = function
@@ -320,8 +313,8 @@ let timeprofiles smg outhubs inhubs src dst deptime =
          begin match ut, vt with
          | Departure (ur, useq), Arrival (vr, vseq) ->
             let uevs, vevs = events ttbl ur useq, events ttbl vr vseq in
-            Vector.find_first uevs first (fun vec -> arrtime <= vec.tdep)
-            |> Option.map (fun i -> aux i (Vector.get vevs i).tarr (v :: tp))
+            let i = Vector.find_first uevs first (fun vec -> arrtime <= vec.tdep)
+            in Option.bind i (fun i -> aux i (Vector.get vevs i).tarr (v :: tp))
          | Arrival _, Arrival _ | Departure _, Departure _
            | Arrival _, Departure _ -> assert false
          | _, _ ->
@@ -341,8 +334,8 @@ let timeprofiles smg outhubs inhubs src dst deptime =
          begin match ut, vt with
          | Departure (ur, useq), Arrival (vr, vseq) ->
             let uevs, vevs = events ttbl ur useq, events ttbl vr vseq in
-            Vector.find_last vevs first (fun vec -> vec.tarr <= deptime)
-            |> Option.map (fun i -> aux i (Vector.get uevs i).tdep (u :: tp))
+            let i = Vector.find_last vevs first (fun vec -> vec.tarr <= deptime)
+            in Option.bind i (fun i -> aux i (Vector.get uevs i).tdep (u :: tp))
          | Arrival _, Arrival _ | Departure _, Departure _
            | Arrival _, Departure _ -> assert false
          | _, _ ->

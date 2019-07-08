@@ -19,7 +19,7 @@ end
 type format = Csv | Tuples
 type buf = { mutable buf : bytes; mutable len : int; mutable cap : int}
 type t =
-  | File of Pervasives.in_channel * format
+  | File of Stdlib.in_channel * format
   | Gzip of Gzip.in_channel * buf * format
 
 let split fmt line =
