@@ -393,11 +393,12 @@ let timeprofiles smg outhubs inhubs src dst deptime =
   in
   build_time_profile [] deptime deptime |> List.rev
 
-let comparison smg output gtfs_dir =
+let comparison smg gtfs_dir =
   let outhubs, inhubs = hl_input smg (gtfs_dir ^ "output.hl") in
-  let (src, _), (dst, _) = Vector.get smg.vertices 0, Vector.get smg.vertices 5 in
-  let deptime = 0 in
-  let oc = open_out output in
+  fun oc prefix src dst deptime ->
+  let src, dst = int_of_string src, int_of_string dst in
+  let (src, _), (dst, _) = Vector.get smg.vertices src, Vector.get smg.vertices dst in
   timeprofiles smg outhubs inhubs src dst deptime
-  |> List.iter (fun (old, ldt, eat) -> Printf.fprintf oc "%d %d %d\n" old ldt eat);
-  close_out oc
+  |> List.iter (fun (old, ldt, eat) ->
+         output_string oc prefix;
+         Printf.fprintf oc ",%d,%d,%d\n" old ldt eat)

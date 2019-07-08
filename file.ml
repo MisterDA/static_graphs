@@ -84,6 +84,7 @@ let input_all f path fmt =
        | Failure e ->
           let e = path ^ " at line " ^ string_of_int !line ^ ": " ^ e in
           raise (Failure e)
+       | Exit -> raise Exit
        | e ->
           Printf.eprintf "%s at line %d\n" path !line;
           raise e
