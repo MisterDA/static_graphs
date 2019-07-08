@@ -9,9 +9,10 @@ let main () =
   let min_change_time = ref 30 in
   let queries = ref "queries-ranked.csv" in
   let nq = ref (-1) in
+  let hubs = ref "" in
 
   let speclist = ref [] in
-  let usage_msg = "Usage: graph <subcommand> -o output gtfs_dir" in
+  let usage_msg = "Usage: graph <static_min_graph|comparison> gtfs_dir" in
   let anon =
     let sub = ref true in
     fun arg ->
@@ -20,14 +21,15 @@ let main () =
         sub := false;
         match arg with
         | "static_min_graph" ->
-           speclist := [("-o", Arg.Set_string output, "output graph");
-                        ("-chg", Arg.Set_int min_change_time, "minimum change time")];
+           speclist := [("-o", Arg.Set_string output, "<file> output time profiles");
+                        ("-chg", Arg.Set_int min_change_time, "<int> minimum change time");];
            subcommand := Some SubStatic_min_graph
         | "comparison" ->
-           speclist := [("-o", Arg.Set_string output, "output graph");
-                        ("-chg", Arg.Set_int min_change_time, "minimum change time");
-                        ("-q", Arg.Set_string queries, "queries file");
-                        ("-nq", Arg.Set_int nq, "number of queries");];
+           speclist := [("-o", Arg.Set_string output, "<file> output time profiles");
+                        ("-chg", Arg.Set_int min_change_time, "<int> minimum change time");
+                        ("-hl", Arg.Set_string hubs, "<file> hub labeling file");
+                        ("-q", Arg.Set_string queries, "<file> queries file");
+                        ("-nq", Arg.Set_int nq, "<int> number of queries");];
            subcommand := Some SubComparison
         | _ -> failwith "Unrecognized subcommand."
       end
@@ -45,15 +47,16 @@ let main () =
   | None -> failwith "Did not specify subcommand."
   | Some c ->
      if !output = "" then failwith "Did not specify output file.";
-     if !gtfs_dir = "" then failwith "Did not specify gtfs directory";
+     if !gtfs_dir = "" then failwith "Did not specify gtfs directory.";
      match c with
      | SubStatic_min_graph ->
         let smg = Static_min_graph.create !gtfs_dir !min_change_time in
         Static_min_graph.output smg !output
      | SubComparison ->
+        if !hubs = "" then failwith "Did not specify hub labeling file.";
         let smg = Static_min_graph.create !gtfs_dir !min_change_time in
-        let f = Static_min_graph.comparison smg !gtfs_dir in
-        let oc = open_out "output.tp" in
+        let f = Static_min_graph.comparison smg !hubs in
+        let oc = open_out !output in
         output_string oc "query,edt,ldt,eat\n";
         let n = ref 1 in
         let aux = function

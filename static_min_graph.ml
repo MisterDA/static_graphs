@@ -370,8 +370,8 @@ let timeprofiles smg outhubs inhubs src dst deptime =
   in
   build_time_profile [] deptime deptime |> List.rev
 
-let comparison smg gtfs_dir =
-  let outhubs, inhubs = hl_input smg (gtfs_dir ^ "output.hl") in
+let comparison smg hubs =
+  let outhubs, inhubs = hl_input smg hubs in
   fun oc prefix src dst deptime ->
   let src, dst = int_of_string src, int_of_string dst in
   let (src, _), (dst, _) = Vector.get smg.vertices src, Vector.get smg.vertices dst in

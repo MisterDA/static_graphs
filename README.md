@@ -8,8 +8,8 @@ opam install ocamlgraph camlzip ocamlbuild
 make
 export OCAMLRUNPARAM=b	# for backtraces
 ./main.native static_min_graph -o output.gr small/
-./hltrans hubs-next-hop output.gr > small/output.hl
-./main.native comparison -o output.tp -q queries.csv small/
+./hltrans hubs-next-hop output.gr > output.hl
+./main.native comparison -o output.tp -q queries.csv -hl output.hl small/
 ```
 
 ``` text
