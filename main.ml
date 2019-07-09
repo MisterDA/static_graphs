@@ -10,6 +10,7 @@ let main () =
   let queries = ref "queries-ranked.csv" in
   let nq = ref (-1) in
   let hubs = ref "" in
+  let gv = ref "" in
 
   let speclist = ref [] in
   let usage_msg = "Usage: graph <static_min_graph|comparison> gtfs_dir" in
@@ -22,14 +23,18 @@ let main () =
         match arg with
         | "static_min_graph" ->
            speclist := [("-o", Arg.Set_string output, "<file> output time profiles");
-                        ("-chg", Arg.Set_int min_change_time, "<int> minimum change time");];
+                        ("-chg", Arg.Set_int min_change_time, "<int> minimum change time");
+                        ("-gv", Arg.Set_string gv, "<file> output GraphViz");
+                       ];
            subcommand := Some SubStatic_min_graph
         | "comparison" ->
            speclist := [("-o", Arg.Set_string output, "<file> output time profiles");
                         ("-chg", Arg.Set_int min_change_time, "<int> minimum change time");
                         ("-hl", Arg.Set_string hubs, "<file> hub labeling file");
                         ("-q", Arg.Set_string queries, "<file> queries file");
-                        ("-nq", Arg.Set_int nq, "<int> number of queries");];
+                        ("-nq", Arg.Set_int nq, "<int> number of queries");
+                        ("-gv", Arg.Set_string gv, "<file> output GraphViz")
+                       ];
            subcommand := Some SubComparison
         | _ -> failwith "Unrecognized subcommand."
       end
@@ -51,10 +56,12 @@ let main () =
      match c with
      | SubStatic_min_graph ->
         let smg = Static_min_graph.create !gtfs_dir !min_change_time in
+        if !gv <> "" then Static_min_graph.dot_output smg !gv;
         Static_min_graph.output smg !output
      | SubComparison ->
         if !hubs = "" then failwith "Did not specify hub labeling file.";
         let smg = Static_min_graph.create !gtfs_dir !min_change_time in
+        if !gv <> "" then Static_min_graph.dot_output smg !gv;
         let f = Static_min_graph.comparison smg !hubs in
         let oc = open_out !output in
         output_string oc "query,edt,ldt,eat\n";
