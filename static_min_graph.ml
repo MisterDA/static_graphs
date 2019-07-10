@@ -95,6 +95,13 @@ let parse_stop_times smg idx trips gtfs_dir : ttbl =
          new_stop seq
   in
   File.input_all (Gtfs.parse_stop_times aux) (gtfs_dir ^ "stop_times.csv") File.Csv;
+
+  let compare {tarr; _} {tarr=tarr'; _} = compare tarr tarr' in
+  Hashtbl.iter (fun _ stops ->
+      Vector.iter (fun {events; _} ->
+          Vector.trim events;
+          Vector.sort compare events) stops)
+    ttbl;
   ttbl
 
 (* let print_ttbl ttbl =
@@ -306,45 +313,45 @@ let timeprofiles smg outhubs inhubs src dst deptime =
   let events ttbl r seq = (Vector.get (Hashtbl.find ttbl r) (seq - 1)).events in
 
   let earliest_arrival_time ttbl transfer_patterns deptime =
-    let rec aux first arrtime = function
+    let rec aux arrtime = function
       | [_] -> Some arrtime
       | u :: v :: tp ->
          let (_, ut), (_, vt) = get_vertices u v in
          begin match ut, vt with
          | Departure (ur, useq), Arrival (vr, vseq) ->
+            assert (ur = vr);
             let uevs, vevs = events ttbl ur useq, events ttbl vr vseq in
-            let i = Vector.find_first uevs first (fun vec -> arrtime <= vec.tdep)
-            in Option.bind i (fun i -> aux i (Vector.get vevs i).tarr (v :: tp))
-         | Arrival _, Arrival _ | Departure _, Departure _
-           | Arrival _, Departure _ -> assert false
-         | _, _ ->
+            let i = Vector.find_first uevs 0 (fun vec -> arrtime <= vec.tdep) in
+            Option.bind i (fun i -> aux (Vector.get vevs i).tarr (v :: tp))
+         | Station, Station | Station, Departure _ | Arrival _, Station ->
             let delay = DG.find_edge smg.graph u v |> DG.E.label in
-            aux 0 (arrtime + delay) (v :: tp)
+            aux (arrtime + delay) (v :: tp)
+         | _, _ -> assert false
          end
       | _ -> assert false
     in
-    aux 0 deptime transfer_patterns
+    aux deptime transfer_patterns
   in
 
   let last_departure_time ttbl transfer_patterns_rev arrtime =
-    let rec aux first deptime = function
+    let rec aux deptime = function
       | [_] -> Some deptime
       | v :: u :: tp ->
          let (_, ut), (_ , vt) = get_vertices u v in
          begin match ut, vt with
          | Departure (ur, useq), Arrival (vr, vseq) ->
+            assert (ur = vr);
             let uevs, vevs = events ttbl ur useq, events ttbl vr vseq in
-            let i = Vector.find_last vevs first (fun vec -> vec.tarr <= deptime)
-            in Option.bind i (fun i -> aux i (Vector.get uevs i).tdep (u :: tp))
-         | Arrival _, Arrival _ | Departure _, Departure _
-           | Arrival _, Departure _ -> assert false
-         | _, _ ->
+            let i = Vector.find_last vevs 0 (fun vec -> vec.tarr <= deptime)
+            in Option.bind i (fun i -> aux (Vector.get uevs i).tdep (u :: tp))
+         | Station, Station | Station, Departure _ | Arrival _, Station ->
             let delay = DG.find_edge smg.graph u v |> DG.E.label in
-            aux first (deptime - delay) (u :: tp)
+            aux (deptime - delay) (u :: tp)
+         | _, _ -> assert false
          end
       | _ -> assert false
     in
-    aux 0 arrtime transfer_patterns_rev
+    aux arrtime transfer_patterns_rev
   in
 
   (* let print_path path =

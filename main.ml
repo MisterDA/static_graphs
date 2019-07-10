@@ -61,6 +61,7 @@ let main () =
      | SubComparison ->
         if !hubs = "" then failwith "Did not specify hub labeling file.";
         let smg = Static_min_graph.create !gtfs_dir !min_change_time in
+        print_endline "Graph generation done.";
         if !gv <> "" then Static_min_graph.dot_output smg !gv;
         let f = Static_min_graph.comparison smg !hubs in
         let oc = open_out !output in
@@ -68,7 +69,9 @@ let main () =
         let n = ref 1 in
         let aux = function
           | [src; dst; deptime; _; _; _] ->
+             Printf.printf "query #%d…\n" !n;
              f oc (string_of_int !n) src dst (int_of_string deptime);
+             flush oc;
              if !n = !nq then raise Exit;
              incr n
           | _ -> invalid_arg "invalid query line."

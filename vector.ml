@@ -25,6 +25,8 @@ let trim vec =
   vec.data <- Array.sub vec.data 0 vec.len;
   vec.cap <- vec.len
 
+let sort cmp vec = Array.fast_sort cmp vec.data
+
 let iter f vec =
   for i = 0 to vec.len - 1 do
     f vec.data.(i)
