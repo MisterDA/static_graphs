@@ -372,15 +372,13 @@ let timeprofiles smg outhubs inhubs src dst deptime =
   let tp = List.rev tp_rev in
 
   let rec build_time_profile tipr deptime old_ldt =
-    match earliest_arrival_time (Option.get smg.ttbl) tp deptime with
-    | None -> tipr
-    | Some eat ->
-       match last_departure_time (Option.get smg.ttbl) tp_rev eat with
-       | None -> tipr
-       | Some ldt ->
-          match tipr with
-          | (_, ldt', eat') :: _ when eat' = eat && ldt = ldt' -> tipr
-          | _ -> build_time_profile ((old_ldt, ldt, eat) :: tipr) (ldt+1) ldt
+    Option.(fold (earliest_arrival_time (get smg.ttbl) tp deptime)
+      ~none:tipr ~some:(fun eat ->
+        fold (last_departure_time (get smg.ttbl) tp_rev eat)
+          ~none:tipr ~some:(fun ldt ->
+            match tipr with
+            | (_, ldt', eat') :: _ when eat' = eat && ldt = ldt' -> tipr
+            | _ -> build_time_profile ((old_ldt, ldt, eat) :: tipr) (ldt+1) ldt)))
   in
   build_time_profile [] deptime deptime |> List.rev
 
