@@ -32,6 +32,8 @@ type t = {
     mutable ttbl : ttbl option;
   }
 
+type fn = Min | Max | Avg
+
 let dummy_vertex = DG.V.create (-1)
 let dummy_event = { tarr = -1; tdep = -1}
 let dummy_stop = { events = Vector.make 1 dummy_event;
@@ -125,7 +127,9 @@ let parse_transfers smg symmetrize gtfs_dir =
   in
   File.input_all (Gtfs.parse_transfers aux) (gtfs_dir ^ "transfers.csv") File.Csv
 
-let create gtfs_dir min_change_time =
+let create gtfs_dir min_change_time fn =
+  let fn', fn0 = match fn with
+      Min -> min, max_int | Max -> max, min_int | Avg -> ( + ), 0 in
   let smg = parse_stations {graph = DG.create ~size:42 (); max_station = None;
                             names = Vector.make 1 "";
                             vertices = Vector.make 1 (dummy_vertex, Station);
@@ -136,8 +140,9 @@ let create gtfs_dir min_change_time =
   let ttbl = parse_stop_times smg (Option.get smg.max_station) trips gtfs_dir in
   smg.ttbl <- Some ttbl;
   let add_stop stop =
-    let t = Vector.fold_left (fun wait {tarr; tdep} -> min wait (tdep - tarr))
-              max_int stop.events in
+    let t = Vector.fold_left (fun wait {tarr; tdep} -> fn' wait (tdep - tarr))
+              fn0 stop.events in
+    let t = if fn = Avg then t / (Vector.length stop.events) else t in
     let e = DG.E.create stop.arr t stop.dep in
     DG.add_edge_e smg.graph e;
     let e1 = DG.E.create stop.arr min_change_time stop.station in
@@ -148,8 +153,9 @@ let create gtfs_dir min_change_time =
   in
   let add_connection vdep varr prev curr =
     let t = Vector.fold_left2
-              (fun wait {tdep; _} {tarr; _} -> min wait (tarr - tdep))
-              max_int prev curr in
+              (fun wait {tdep; _} {tarr; _} -> fn' wait (tarr - tdep))
+              fn0 prev curr in
+    let t = if fn = Avg then t / (Vector.length prev) else t in
     let e = DG.E.create vdep t varr in
     DG.add_edge_e smg.graph e
   in

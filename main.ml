@@ -1,6 +1,4 @@
-module Smg = Static_min_graph
-
-type subcommand = SubStatic_min_graph | SubComparison
+type subcommand = SubStatic_graph | SubComparison
 
 let main () =
   let output = ref "" in
@@ -11,6 +9,7 @@ let main () =
   let nq = ref (-1) in
   let hubs = ref "" in
   let gv = ref "" in
+  let fn = ref "min" in
 
   let speclist = ref [] in
   let usage_msg = "Usage: graph <static_min_graph|comparison> gtfs_dir" in
@@ -20,21 +19,20 @@ let main () =
     if !sub then
       begin
         sub := false;
+        let common = [("-o", Arg.Set_string output, "<file> output time profiles");
+                      ("-chg", Arg.Set_int min_change_time, "<int> minimum change time");
+                      ("-gv", Arg.Set_string gv, "<file> output GraphViz");
+                      ("-fn", Arg.Set_string fn, "<min|max|avg> edges function");
+                     ] in
         match arg with
         | "static_min_graph" ->
-           speclist := [("-o", Arg.Set_string output, "<file> output time profiles");
-                        ("-chg", Arg.Set_int min_change_time, "<int> minimum change time");
-                        ("-gv", Arg.Set_string gv, "<file> output GraphViz");
-                       ];
-           subcommand := Some SubStatic_min_graph
+           speclist := common;
+           subcommand := Some SubStatic_graph
         | "comparison" ->
-           speclist := [("-o", Arg.Set_string output, "<file> output time profiles");
-                        ("-chg", Arg.Set_int min_change_time, "<int> minimum change time");
-                        ("-hl", Arg.Set_string hubs, "<file> hub labeling file");
-                        ("-q", Arg.Set_string queries, "<file> queries file");
-                        ("-nq", Arg.Set_int nq, "<int> number of queries");
-                        ("-gv", Arg.Set_string gv, "<file> output GraphViz")
-                       ];
+           speclist :=  ("-hl", Arg.Set_string hubs, "<file> hub labeling file")
+                        :: ("-q", Arg.Set_string queries, "<file> queries file")
+                        :: ("-nq", Arg.Set_int nq, "<int> number of queries")
+                        :: common;
            subcommand := Some SubComparison
         | _ -> failwith "Unrecognized subcommand."
       end
@@ -53,17 +51,21 @@ let main () =
   | Some c ->
      if !output = "" then failwith "Did not specify output file.";
      if !gtfs_dir = "" then failwith "Did not specify gtfs directory.";
+     let fn = Static_graph.(if !fn = "min" then Min
+                            else if !fn = "max" then Max
+                            else if !fn = "avg" then Avg
+                            else failwith "Wrong edge function.") in
      match c with
-     | SubStatic_min_graph ->
-        let smg = Static_min_graph.create !gtfs_dir !min_change_time in
-        if !gv <> "" then Static_min_graph.dot_output smg !gv;
-        Static_min_graph.output smg !output
+     | SubStatic_graph ->
+        let smg = Static_graph.create !gtfs_dir !min_change_time fn in
+        if !gv <> "" then Static_graph.dot_output smg !gv;
+        Static_graph.output smg !output
      | SubComparison ->
         if !hubs = "" then failwith "Did not specify hub labeling file.";
-        let smg = Static_min_graph.create !gtfs_dir !min_change_time in
+        let smg = Static_graph.create !gtfs_dir !min_change_time fn in
         print_endline "Graph generation done.";
-        if !gv <> "" then Static_min_graph.dot_output smg !gv;
-        let f = Static_min_graph.comparison smg !hubs in
+        if !gv <> "" then Static_graph.dot_output smg !gv;
+        let f = Static_graph.comparison smg !hubs in
         let oc = open_out !output in
         output_string oc "query,edt,ldt,eat\n";
         let n = ref 1 in
