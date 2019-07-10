@@ -7,9 +7,9 @@ OCaml >= 4.08
 opam install ocamlgraph camlzip dune
 dune build main.exe --profile release
 ln -snf _build/default/main.exe main
-./main static_min_graph -o output.gr small/
+./main static_graph -fn min -o output.gr small/
 ./hltrans hubs-next-hop output.gr > output.hl
-./main comparison -o output.tp -q queries.csv -hl output.hl small/
+./main comparison -fn min -o output.tp -q queries.csv -hl output.hl small/
 ```
 
 ``` text

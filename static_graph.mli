@@ -1,6 +1,6 @@
 type t
 type fn = Min | Max | Avg
-val create : string -> int -> fn -> t
+val create : string -> int -> fn -> start:int -> finish:int -> t
 val load : string -> t
 val output : t -> string -> unit
 val output_pretty : t -> string -> unit

@@ -58,12 +58,13 @@ let parse_stations smg gtfs_dir =
   File.input_all (Gtfs.parse_stations aux) (gtfs_dir ^ "stops.csv") File.Csv;
   {smg with max_station = Some !max_station}
 
-let parse_stop_times smg idx trips gtfs_dir : ttbl =
+let parse_stop_times smg idx trips start finish gtfs_dir : ttbl =
   let ttbl = Hashtbl.create 42 in
   let idx = ref idx in
   let post_incr () = let old = !idx in incr idx; old in
 
   let aux (Gtfs.{ trip_id; arrival; departure; station_id; stop_sequence }) =
+    if arrival < start || finish < departure then ();
     let route_id = Hashtbl.find trips trip_id in
     let event = {tarr = arrival; tdep = departure} in
     let new_stop seq =
@@ -127,7 +128,7 @@ let parse_transfers smg symmetrize gtfs_dir =
   in
   File.input_all (Gtfs.parse_transfers aux) (gtfs_dir ^ "transfers.csv") File.Csv
 
-let create gtfs_dir min_change_time fn =
+let create gtfs_dir min_change_time fn ~start ~finish =
   let fn', fn0 = match fn with
       Min -> min, max_int | Max -> max, min_int | Avg -> ( + ), 0 in
   let smg = parse_stations {graph = DG.create ~size:42 (); max_station = None;
@@ -137,7 +138,7 @@ let create gtfs_dir min_change_time fn =
               gtfs_dir in
   parse_transfers smg true gtfs_dir;
   let trips = parse_trips gtfs_dir in
-  let ttbl = parse_stop_times smg (Option.get smg.max_station) trips gtfs_dir in
+  let ttbl = parse_stop_times smg (Option.get smg.max_station) trips start finish gtfs_dir in
   smg.ttbl <- Some ttbl;
   let add_stop stop =
     let t = Vector.fold_left (fun wait {tarr; tdep} -> fn' wait (tdep - tarr))

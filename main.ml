@@ -10,9 +10,10 @@ let main () =
   let hubs = ref "" in
   let gv = ref "" in
   let fn = ref "min" in
+  let start, finish = ref min_int, ref max_int in
 
   let speclist = ref [] in
-  let usage_msg = "Usage: graph <static_min_graph|comparison> gtfs_dir" in
+  let usage_msg = "Usage: graph <static_graph|comparison> gtfs_dir" in
   let anon =
     let sub = ref true in
     fun arg ->
@@ -23,9 +24,11 @@ let main () =
                       ("-chg", Arg.Set_int min_change_time, "<int> minimum change time");
                       ("-gv", Arg.Set_string gv, "<file> output GraphViz");
                       ("-fn", Arg.Set_string fn, "<min|max|avg> edges function");
+                      ("-start", Arg.Set_int start, "<time> minimum event time");
+                      ("-finish", Arg.Set_int finish, "<time> maximum event time");
                      ] in
         match arg with
-        | "static_min_graph" ->
+        | "static_graph" ->
            speclist := common;
            subcommand := Some SubStatic_graph
         | "comparison" ->
@@ -57,12 +60,14 @@ let main () =
                             else failwith "Wrong edge function.") in
      match c with
      | SubStatic_graph ->
-        let smg = Static_graph.create !gtfs_dir !min_change_time fn in
+        let smg = Static_graph.create !gtfs_dir !min_change_time fn
+                    ~start:!start ~finish:!finish in
         if !gv <> "" then Static_graph.dot_output smg !gv;
         Static_graph.output smg !output
      | SubComparison ->
         if !hubs = "" then failwith "Did not specify hub labeling file.";
-        let smg = Static_graph.create !gtfs_dir !min_change_time fn in
+        let smg = Static_graph.create !gtfs_dir !min_change_time fn
+                    ~start:!start ~finish:!finish in
         print_endline "Graph generation done.";
         if !gv <> "" then Static_graph.dot_output smg !gv;
         let f = Static_graph.comparison smg !hubs in
