@@ -5,11 +5,14 @@ OCaml >= 4.08
 
 ``` sh
 opam install ocamlgraph camlzip dune
-dune build main.exe --profile release
-ln -snf _build/default/main.exe main
-./main static_graph -fn min -o output.gr small/
-./hltrans hubs-next-hop output.gr > output.hl
-./main comparison -fn min -o output.tp -q queries.csv -hl output.hl small/
+git clone https://github.com/MisterDA/static_graphs.git
+git clone https://github.com/MisterDA/big-graph-tools.git
+git clone https://github.com/MisterDA/hl-csa-raptor.git
+# Have all files from here in files.inria.fr/London
+# https://files.inria.fr/gang/graphs/public_transport/London/index.html
+cd static_graphs
+make build
+make min # max avg
 ```
 
 ``` text
