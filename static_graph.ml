@@ -262,7 +262,11 @@ let hl_input smg path : hubs * hubs =
  *   Hashtbl.iter (print_inhubs oc smg) inhubs;
  *   Hashtbl.iter (print_outhubs oc smg) outhubs *)
 
-let timeprofiles smg outhubs inhubs src dst deptime =
+let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
+  let src, dst = int_of_string src, int_of_string dst in
+  let (src, _) = Vector.get smg.vertices src in
+  let (dst, _) = Vector.get smg.vertices dst in
+
   let reachability src dst =
     let outlabels = Hashtbl.find outhubs src in
     let inlabels  = Hashtbl.find inhubs dst  in
@@ -372,28 +376,19 @@ let timeprofiles smg outhubs inhubs src dst deptime =
   print_string " done! Building transfer patterns…"; flush stdout;
   let tp_rev = build_transfer_patterns path in
   let tp = List.rev tp_rev in
-  print_endline " done! Building time profile…";
+  print_string " done! Building time profile…"; flush stdout;
 
-  let rec build_time_profile tipr deptime edt =
+  let rec build_time_profile (ldt', eat') deptime edt =
     Option.(fold (earliest_arrival_time (get smg.ttbl) tp deptime)
-      ~none:tipr ~some:(fun eat ->
+      ~none:() ~some:(fun eat ->
         fold (last_departure_time (get smg.ttbl) tp_rev eat)
-          ~none:tipr ~some:(fun ldt ->
-            match tipr with
-            | (_, ldt', eat') :: _ when eat' = eat && ldt = ldt' -> tipr
-            | _ ->
-               Printf.printf "edt:%d ldt:%d eat:%d\n" edt ldt eat;
-               build_time_profile ((edt, ldt, eat) :: tipr) (ldt+1) ldt)))
+          ~none:() ~some:(fun ldt ->
+            if eat' = eat && ldt = ldt' then ()
+            else begin
+                output_string oc prefix;
+                Printf.fprintf oc ",%d,%d,%d\n" edt ldt eat;
+                build_time_profile (ldt, eat) (ldt+1) ldt
+              end)))
   in
-  let tp = build_time_profile [] deptime deptime |> List.rev in
-  print_endline " done!";
-  tp
-
-let comparison smg (outhubs, inhubs) =
-  fun oc prefix src dst deptime ->
-  let src, dst = int_of_string src, int_of_string dst in
-  let (src, _), (dst, _) = Vector.get smg.vertices src, Vector.get smg.vertices dst in
-  timeprofiles smg outhubs inhubs src dst deptime
-  |> List.iter (fun (old, ldt, eat) ->
-         output_string oc prefix;
-         Printf.fprintf oc ",%d,%d,%d\n" old ldt eat)
+  build_time_profile (-1, -1) deptime deptime;
+  print_endline " done!"

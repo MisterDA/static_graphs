@@ -80,8 +80,8 @@ let main () =
         print_endline "Starting…";
         let aux = function
           | [src; dst; deptime; _; _; _] ->
-             Printf.printf "query #%d…\n" !n;
-             f oc (string_of_int !n) src dst (int_of_string deptime);
+             Printf.printf "Query #%d: " !n; flush stdout;
+             f oc (string_of_int !n) (src, dst) (int_of_string deptime);
              flush oc;
              if !n = !nq then raise Exit;
              incr n
