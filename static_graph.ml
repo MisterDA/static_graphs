@@ -172,23 +172,23 @@ let create gtfs_dir min_change_time fn ~start ~finish =
     ttbl;
   smg
 
-let load path =
-  let f = File.open_in path File.Tuples in
-  let graph = DG.create ~size:128 () in
-  let aux = function
-    | [src; dst; wgt] ->
-       let src, dst = DG.V.create (int_of_string src),
-                      DG.V.create (int_of_string dst) in
-       let wgt = int_of_string wgt in
-       let e = DG.E.create src wgt dst in
-       DG.add_edge_e graph e
-    | _ -> failwith "Invalid format"
-  in
-  begin try while true do File.input_line aux f done
-        with End_of_file -> () end;
-  {graph; max_station = None; names = Vector.make 1 "";
-   vertices = Vector.make 1 (dummy_vertex, Station);
-   ttbl = None; }
+(* let load path =
+ *   let f = File.open_in path File.Tuples in
+ *   let graph = DG.create ~size:128 () in
+ *   let aux = function
+ *     | [src; dst; wgt] ->
+ *        let src, dst = DG.V.create (int_of_string src),
+ *                       DG.V.create (int_of_string dst) in
+ *        let wgt = int_of_string wgt in
+ *        let e = DG.E.create src wgt dst in
+ *        DG.add_edge_e graph e
+ *     | _ -> failwith "Invalid format"
+ *   in
+ *   begin try while true do File.input_line aux f done
+ *         with End_of_file -> () end;
+ *   {graph; max_station = None; names = Vector.make 1 "";
+ *    vertices = Vector.make 1 (dummy_vertex, Station);
+ *    ttbl = None; } *)
 
 let pretty_name smg v = Vector.get smg.names (DG.V.label v)
 
@@ -382,8 +382,7 @@ let timeprofiles smg outhubs inhubs src dst deptime =
   in
   build_time_profile [] deptime deptime |> List.rev
 
-let comparison smg hubs =
-  let outhubs, inhubs = hl_input smg hubs in
+let comparison smg (outhubs, inhubs) =
   fun oc prefix src dst deptime ->
   let src, dst = int_of_string src, int_of_string dst in
   let (src, _), (dst, _) = Vector.get smg.vertices src, Vector.get smg.vertices dst in

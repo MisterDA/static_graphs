@@ -68,9 +68,12 @@ let main () =
         if !hubs = "" then failwith "Did not specify hub labeling file.";
         let smg = Static_graph.create !gtfs_dir !min_change_time fn
                     ~start:!start ~finish:!finish in
-        print_endline "Graph generation done.";
         if !gv <> "" then Static_graph.dot_output smg !gv;
-        let f = Static_graph.comparison smg !hubs in
+        print_endline "Graph generation done.";
+        let hubs = Static_graph.hl_input smg !hubs in
+        print_endline "Hubs loaded.";
+        Gc.compact ();
+        let f = Static_graph.comparison smg hubs in
         let oc = open_out !output in
         output_string oc "query,edt,ldt,eat\n";
         let n = ref 1 in
