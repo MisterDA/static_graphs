@@ -367,20 +367,27 @@ let timeprofiles smg outhubs inhubs src dst deptime =
    *   print_endline ""
    * in *)
 
+  print_string "Building path…"; flush stdout;
   let path = build_path src dst in
+  print_string " done! Building transfer patterns…"; flush stdout;
   let tp_rev = build_transfer_patterns path in
   let tp = List.rev tp_rev in
+  print_endline " done! Building time profile…";
 
-  let rec build_time_profile tipr deptime old_ldt =
+  let rec build_time_profile tipr deptime edt =
     Option.(fold (earliest_arrival_time (get smg.ttbl) tp deptime)
       ~none:tipr ~some:(fun eat ->
         fold (last_departure_time (get smg.ttbl) tp_rev eat)
           ~none:tipr ~some:(fun ldt ->
             match tipr with
             | (_, ldt', eat') :: _ when eat' = eat && ldt = ldt' -> tipr
-            | _ -> build_time_profile ((old_ldt, ldt, eat) :: tipr) (ldt+1) ldt)))
+            | _ ->
+               Printf.printf "edt:%d ldt:%d eat:%d\n" edt ldt eat;
+               build_time_profile ((edt, ldt, eat) :: tipr) (ldt+1) ldt)))
   in
-  build_time_profile [] deptime deptime |> List.rev
+  let tp = build_time_profile [] deptime deptime |> List.rev in
+  print_endline " done!";
+  tp
 
 let comparison smg (outhubs, inhubs) =
   fun oc prefix src dst deptime ->

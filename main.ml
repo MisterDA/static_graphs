@@ -77,6 +77,7 @@ let main () =
         let oc = open_out !output in
         output_string oc "query,edt,ldt,eat\n";
         let n = ref 1 in
+        print_endline "Starting…";
         let aux = function
           | [src; dst; deptime; _; _; _] ->
              Printf.printf "query #%d…\n" !n;
