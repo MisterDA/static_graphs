@@ -11,3 +11,6 @@ trip_id,arrival_time,departure_time,stop_id,stop_sequence
 4,1500,1500,3,1
 4,1700,1720,4,2
 4,1920,1920,5,3
+5,1,1,0,1
+5,20,20,1,2
+5,31,31,2,3
