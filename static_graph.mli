@@ -1,6 +1,8 @@
 type t
 type hubs
 
+exception No_common_hub
+
 type fn = Min | Max | Avg
 val create : string -> int -> fn -> start:int -> finish:int -> t
 val hl_input : t -> string -> (hubs * hubs)

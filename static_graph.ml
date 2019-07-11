@@ -12,6 +12,7 @@ module List = struct
        List.rev (aux (h, [h]) t)
 end
 
+exception No_common_hub
 
 type ttbl_event = {tarr : Gtfs.time; tdep : Gtfs.time}
 type ttbl_stop = {events : ttbl_event Vector.t;
@@ -118,8 +119,10 @@ let parse_stop_times smg idx trips start finish gtfs_dir : ttbl =
 
 let parse_transfers smg symmetrize gtfs_dir =
   let aux (Gtfs.{ departure; arrival; transfer }) =
-    let departure, _ = Vector.get smg.vertices (int_of_string departure) in
-    let arrival, _ = Vector.get smg.vertices (int_of_string arrival) in
+    let departure, arrival = int_of_string departure, int_of_string arrival in
+    if departure = arrival then (); (* remove self loops *)
+    let departure, _ = Vector.get smg.vertices departure in
+    let arrival, _ = Vector.get smg.vertices arrival in
     let e = DG.E.create departure transfer arrival in
     DG.add_edge_e smg.graph e;
     if symmetrize then
@@ -282,7 +285,7 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
         Vector.iter (fun inlbl -> f outlbl inlbl) inlabels)
       outlabels;
     match !outlabel, !inlabel with
-    | None, _ | _, None -> failwith "No common hub found."
+    | None, _ | _, None -> raise No_common_hub
     | Some outlabel, Some inlabel -> outlabel, inlabel
   in
 
@@ -305,11 +308,13 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
       | tp, [] -> tp
       | tp, [dst] -> dst :: tp
       | h :: tp, v1 :: v2 :: path ->
-         let lbl1, lbl2 = DG.V.label v1, DG.V.label v2 in
-         if is_station lbl1 || is_station lbl2 then
-           if h = v1 then aux (v2 :: h :: tp, path)
-           else aux (v2 :: v1 :: h :: tp, path)
-         else aux (h :: tp, v2 :: path)
+         if h = v1 then aux (h :: tp, v2 :: path)
+         else
+           let lh, lv1, lv2 = DG.V.label h, DG.V.label v1, DG.V.label v2 in
+           if is_station lh || is_station lv1 || is_station lv2 then
+             aux (v1 :: h :: tp, v2 :: path)
+           else
+             aux (h :: tp, v2 :: path)
       | _ -> assert false
     in
     match path with
@@ -322,6 +327,7 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
     Vector.get smg.vertices (DG.V.label v)
   in
   let events ttbl r seq = (Vector.get (Hashtbl.find ttbl r) (seq - 1)).events in
+  let is_simple = ref true in   (* the graph is only transfers *)
 
   let earliest_arrival_time ttbl transfer_patterns deptime =
     let rec aux arrtime = function
@@ -331,6 +337,7 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
          begin match ut, vt with
          | Departure (ur, useq), Arrival (vr, vseq) ->
             assert (ur = vr);
+            is_simple := false;
             let uevs, vevs = events ttbl ur useq, events ttbl vr vseq in
             let i = Vector.find_first uevs 0 (fun vec -> arrtime <= vec.tdep) in
             Option.bind i (fun i -> aux (Vector.get vevs i).tarr (v :: tp))
@@ -368,27 +375,36 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
   (* let print_path path =
    *   List.iter (fun v ->
    *       Printf.printf "%d:%s -> " (DG.V.label v) (pretty_name smg v)) path;
-   *   print_endline ""
    * in *)
 
   print_string "Building path…"; flush stdout;
   let path = build_path src dst in
+  (* print_string " "; print_path path; *)
   print_string " done! Building transfer patterns…"; flush stdout;
   let tp_rev = build_transfer_patterns path in
   let tp = List.rev tp_rev in
+  (* print_string " "; print_path tp; *)
   print_string " done! Building time profile…"; flush stdout;
 
   let rec build_time_profile (ldt', eat') deptime edt =
     Option.(fold (earliest_arrival_time (get smg.ttbl) tp deptime)
-      ~none:() ~some:(fun eat ->
-        fold (last_departure_time (get smg.ttbl) tp_rev eat)
-          ~none:() ~some:(fun ldt ->
-            if eat' = eat && ldt = ldt' then ()
-            else begin
-                output_string oc prefix;
-                Printf.fprintf oc ",%d,%d,%d\n" edt ldt eat;
-                build_time_profile (ldt, eat) (ldt+1) ldt
-              end)))
+              ~none:() ~some:(fun eat ->
+                fold (last_departure_time (get smg.ttbl) tp_rev eat)
+                  ~none:() ~some:(fun ldt ->
+                    if not (eat' = eat && ldt = ldt') then begin
+                        output_string oc prefix;
+                        Printf.fprintf oc ",%d,%d,%d\n" edt ldt eat;
+                        build_time_profile (ldt, eat) (ldt+1) ldt
+                      end)))
   in
-  build_time_profile (-1, -1) deptime deptime;
+
+  let eat = earliest_arrival_time (Option.get smg.ttbl) tp deptime in
+  if !is_simple && Option.is_some eat then
+    begin
+      print_string " simple path"; flush stdout;
+      output_string oc prefix;
+      Printf.fprintf oc ",0,0,%d\n" (Option.get eat)
+    end
+  else
+    build_time_profile (-1, -1) deptime deptime;
   print_endline " done!"

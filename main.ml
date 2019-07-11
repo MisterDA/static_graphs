@@ -81,7 +81,11 @@ let main () =
         let aux = function
           | [src; dst; deptime; _; _; _] ->
              Printf.printf "Query #%d: " !n; flush stdout;
-             f oc (string_of_int !n) (src, dst) (int_of_string deptime);
+             begin try f oc (string_of_int !n) (src, dst) (int_of_string deptime);
+             with Static_graph.No_common_hub ->
+               prerr_endline "No common hub found.";
+               Printf.fprintf oc "%d,0,0,0\n" !n
+             end;
              flush oc;
              if !n = !nq then raise Exit;
              incr n
