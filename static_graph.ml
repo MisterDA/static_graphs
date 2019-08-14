@@ -312,32 +312,6 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
   in
 
   let get_vertex u = Vector.get smg.vertices (DG.V.label u) |> snd in
-
-  let build_transfer_patterns path_rev =
-    let rec aux delay tp path_rev =
-      match tp, path_rev with
-      | _, [] -> tp
-      | _, [dst] -> dst :: tp
-      | (h, dh) :: tp', (v1, dv1) :: (v2, dv2) :: path_rev' ->
-         begin
-         if h = v1 then aux delay tp ((v2, dv2) :: path_rev')
-         else
-           match get_vertex h, get_vertex v1, get_vertex v2 with
-           | Station, Arrival _, _ | Station, Station, _ ->
-              aux 0 ((v1, dv1) :: tp) ((v2, dv2) :: path_rev')
-           | Arrival _, Departure _, Arrival _ ->
-              aux (delay + dv1 + dv2) tp path_rev'
-           | Arrival _, Departure _, Station ->
-              aux 0 ((v2, dv2) :: (v1, dv1) :: (h, dh + delay) :: tp') path_rev'
-           | _ -> assert false
-         end
-      | _ -> assert false
-    in
-    match path_rev with
-    | src :: _ -> aux 0 [src] path_rev
-    | _ -> assert false
-  in
-
   let events ttbl r seq = (Vector.get (Hashtbl.find ttbl r) (seq - 1)).events in
   let is_simple = ref true in   (* the graph is only transfers *)
 
@@ -352,8 +326,11 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
             is_simple := false;
             let uevs = events ttbl ur useq in
             let i = Vector.find_first uevs 0 (fun vec -> arrtime <= vec.tdep) in
-            Option.bind i (fun i -> aux ((Vector.get uevs i).tdep + dv) ((v, dv) :: tp))
-         | Station, Station | Station, Departure _ | Arrival _, Station ->
+            Option.bind i (fun i ->
+                let t = (Vector.get uevs i).tdep in
+                aux (t + dv) ((v, dv) :: tp))
+         | Station, Station | Station, Departure _ | Arrival _, Station
+           | Arrival _, Departure _ ->
             aux (arrtime + dv) ((v, dv) :: tp)
          | _, _ -> assert false
          end
@@ -371,11 +348,13 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
          | Departure (ur, _), Arrival (vr, vseq) ->
             assert (ur = vr);
             let vevs = events ttbl vr vseq in
-            let i = Vector.find_last vevs 0 (fun vec -> vec.tarr <= deptime)
-            in Option.bind i (fun i -> aux ((Vector.get vevs i).tarr - dv) ((u, du) :: tp))
-         | Station, Station | Station, Departure _ | Arrival _, Station ->
-            let delay = DG.find_edge smg.graph u v |> DG.E.label in
-            aux (deptime - delay) ((u, du) :: tp)
+            let i = Vector.find_last vevs 0 (fun vec -> vec.tarr <= deptime) in
+            Option.bind i (fun i ->
+                let t = (Vector.get vevs i).tarr in
+                aux (t - dv) ((u, du) :: tp))
+         | Station, Station | Station, Departure _ | Arrival _, Station
+           | Arrival _, Departure _ ->
+            aux (deptime - dv) ((u, du) :: tp)
          | _, _ -> assert false
          end
       | _ -> assert false
@@ -391,11 +370,8 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
    * in *)
 
   print_string "Building path…"; flush stdout;
-  let path_rev = build_path_rev src dst in
-  (* print_string " "; print_path path_rev; *)
-  print_string " done! Building transfer patterns…"; flush stdout;
-  let tp = build_transfer_patterns path_rev in
-  let tp_rev = List.rev tp in
+  let tp_rev = build_path_rev src dst in
+  let tp = List.rev tp_rev in
   (* print_string " "; print_path tp; print_path tp_rev; *)
   print_string " done! Building time profile…"; flush stdout;
 
