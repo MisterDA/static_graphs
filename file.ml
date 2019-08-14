@@ -58,7 +58,7 @@ let open_in path fmt =
     | Gzip (chan, (s, _), _) ->
        begin try Gzip.really_input chan s 0 cap;
                  failwith "Not enough buffer allocated."
-             with End_of_file -> () end
+             with End_of_file -> () end;
     | File _ -> ()
   end;
   match fmt with
@@ -83,7 +83,7 @@ let input_all f path fmt =
           raise (Failure e)
        | Exit -> raise Exit
        | e ->
-          Printf.eprintf "\nException reading %s at line %d\n" path !line;
+          Printf.eprintf "%s at line %d\n" path !line;
           raise e
   end;
   close_in ic;

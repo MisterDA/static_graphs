@@ -289,7 +289,7 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
     | Some outlabel, Some inlabel -> outlabel, inlabel
   in
 
-  let build_path_rev src dst =
+  let build_path src dst =
     let rec aux src dst =
       let outlbl, inlbl = reachability src dst in
       let hub = outlbl.hub in
@@ -298,63 +298,52 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
       @ (if inlbl.hub <> inlbl.next_hop then aux hub inlbl.next_hop else [])
       @ [dst]
     in
-    match List.unique (aux src dst) with
-    | src :: path ->
-       let rec aux = function
-         | ((u, _) :: _ as acc'), v :: path ->
-            let delay = DG.find_edge smg.graph u v |> DG.E.label in
-            aux ((v, delay) :: acc', path)
-         | acc, [] -> acc
-         | _ -> assert false
-       in
-       aux ([src, 0], path)
-    | _ -> assert false
+    List.unique (aux src dst)
   in
 
-  let get_vertex u = Vector.get smg.vertices (DG.V.label u) |> snd in
+  let is_station v = v < Option.get smg.max_station in
 
-  let build_transfer_patterns path_rev =
-    let rec aux delay tp path_rev =
-      match tp, path_rev with
-      | _, [] -> tp
-      | _, [dst] -> dst :: tp
-      | (h, dh) :: tp', (v1, dv1) :: (v2, dv2) :: path_rev' ->
-         begin
-         if h = v1 then aux delay tp ((v2, dv2) :: path_rev')
+  let build_transfer_patterns path =
+    let rec aux = function
+      | tp, [] -> tp
+      | tp, [dst] -> dst :: tp
+      | h :: tp, v1 :: v2 :: path ->
+         if h = v1 then aux (h :: tp, v2 :: path)
          else
-           match get_vertex h, get_vertex v1, get_vertex v2 with
-           | Station, Arrival _, _ | Station, Station, _ ->
-              aux 0 ((v1, dv1) :: tp) ((v2, dv2) :: path_rev')
-           | Arrival _, Departure _, Arrival _ ->
-              aux (delay + dv1 + dv2) tp path_rev'
-           | Arrival _, Departure _, Station ->
-              aux 0 ((v2, dv2) :: (v1, dv1) :: (h, dh + delay) :: tp') path_rev'
-           | _ -> assert false
-         end
+           let lh, lv1, lv2 = DG.V.label h, DG.V.label v1, DG.V.label v2 in
+           if is_station lh || is_station lv1 || is_station lv2 then
+             aux (v1 :: h :: tp, v2 :: path)
+           else
+             aux (h :: tp, v2 :: path)
       | _ -> assert false
     in
-    match path_rev with
-    | src :: _ -> aux 0 [src] path_rev
+    match path with
+    | src :: _ -> aux ([src], path)
     | _ -> assert false
   in
 
+  let get_vertices u v =
+    Vector.get smg.vertices (DG.V.label u),
+    Vector.get smg.vertices (DG.V.label v)
+  in
   let events ttbl r seq = (Vector.get (Hashtbl.find ttbl r) (seq - 1)).events in
   let is_simple = ref true in   (* the graph is only transfers *)
 
   let earliest_arrival_time ttbl transfer_patterns deptime =
     let rec aux arrtime = function
       | [_] -> Some arrtime
-      | (u, _) :: (v, dv) :: tp ->
-         let ut, vt = get_vertex u, get_vertex v in
+      | u :: v :: tp ->
+         let (_, ut), (_, vt) = get_vertices u v in
          begin match ut, vt with
-         | Departure (ur, useq), Arrival (vr, _) ->
+         | Departure (ur, useq), Arrival (vr, vseq) ->
             assert (ur = vr);
             is_simple := false;
-            let uevs = events ttbl ur useq in
+            let uevs, vevs = events ttbl ur useq, events ttbl vr vseq in
             let i = Vector.find_first uevs 0 (fun vec -> arrtime <= vec.tdep) in
-            Option.bind i (fun i -> aux ((Vector.get uevs i).tdep + dv) ((v, dv) :: tp))
+            Option.bind i (fun i -> aux (Vector.get vevs i).tarr (v :: tp))
          | Station, Station | Station, Departure _ | Arrival _, Station ->
-            aux (arrtime + dv) ((v, dv) :: tp)
+            let delay = DG.find_edge smg.graph u v |> DG.E.label in
+            aux (arrtime + delay) (v :: tp)
          | _, _ -> assert false
          end
       | _ -> assert false
@@ -365,17 +354,17 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
   let last_departure_time ttbl transfer_patterns_rev arrtime =
     let rec aux deptime = function
       | [_] -> Some deptime
-      | (v, dv) :: (u, du) :: tp ->
-         let ut, vt = get_vertex u, get_vertex v in
+      | v :: u :: tp ->
+         let (_, ut), (_ , vt) = get_vertices u v in
          begin match ut, vt with
-         | Departure (ur, _), Arrival (vr, vseq) ->
+         | Departure (ur, useq), Arrival (vr, vseq) ->
             assert (ur = vr);
-            let vevs = events ttbl vr vseq in
+            let uevs, vevs = events ttbl ur useq, events ttbl vr vseq in
             let i = Vector.find_last vevs 0 (fun vec -> vec.tarr <= deptime)
-            in Option.bind i (fun i -> aux ((Vector.get vevs i).tarr - dv) ((u, du) :: tp))
+            in Option.bind i (fun i -> aux (Vector.get uevs i).tdep (u :: tp))
          | Station, Station | Station, Departure _ | Arrival _, Station ->
             let delay = DG.find_edge smg.graph u v |> DG.E.label in
-            aux (deptime - delay) ((u, du) :: tp)
+            aux (deptime - delay) (u :: tp)
          | _, _ -> assert false
          end
       | _ -> assert false
@@ -384,19 +373,17 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
   in
 
   (* let print_path path =
-   *   print_endline "";
-   *   List.iter (fun (v, dv) ->
-   *       Printf.printf "%d:%s[%d] -> " (DG.V.label v) (pretty_name smg v) dv) path;
-   *   print_endline "";
+   *   List.iter (fun v ->
+   *       Printf.printf "%d:%s -> " (DG.V.label v) (pretty_name smg v)) path;
    * in *)
 
   print_string "Building path…"; flush stdout;
-  let path_rev = build_path_rev src dst in
-  (* print_string " "; print_path path_rev; *)
+  let path = build_path src dst in
+  (* print_string " "; print_path path; *)
   print_string " done! Building transfer patterns…"; flush stdout;
-  let tp = build_transfer_patterns path_rev in
-  let tp_rev = List.rev tp in
-  (* print_string " "; print_path tp; print_path tp_rev; *)
+  let tp_rev = build_transfer_patterns path in
+  let tp = List.rev tp_rev in
+  (* print_string " "; print_path tp; *)
   print_string " done! Building time profile…"; flush stdout;
 
   let rec build_time_profile (ldt', eat') deptime edt =
