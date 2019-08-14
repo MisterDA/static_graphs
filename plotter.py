@@ -90,7 +90,8 @@ def plot_query(q, dyng, ming, maxg, avgg, show):
     if show:
         plt.show()
     else:
-        plt.savefig("plots/{}.svg".format(q))
+        plt.savefig("plots/{}.svg".format(q), format='svg')
+        plt.savefig("plots/{}.eps".format(q), format='eps', dpi=600)
     plt.clf()
 
 
