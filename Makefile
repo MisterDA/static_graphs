@@ -24,7 +24,10 @@ plots: min max avg raptor
 		$(LONDON)/static_avg_graph.tp 	\
 		$(LONDON)/queries-rank.csv
 
-cleanplots:
+clean_plots:
+	$(RM) -r plots.* plots/ plots-min/
+
+plots_minimize:
 	mkdir -p plots-min
 	cd plots;							  \
 	for file in *.svg; do						  \
@@ -54,6 +57,13 @@ $(LONDON)/static_avg_graph.hl: $(LONDON)/static_avg_graph.gr
 $(LONDON)/static_avg_graph.tp: $(LONDON)/static_avg_graph.hl
 	$(MAIN) comparison -fn avg -o $@ -q queries-rank.csv -hl $< $(LONDON)/
 avg: build $(LONDON)/static_avg_graph.tp
+
+clean_timeprofiles:
+	$(RM) -r $(LONDON)/*.tp
+clean_hubs: clean_timeprofiles
+	$(RM) -r $(LONDON)/*.hl
+clean_graphs: clean_hubs
+	$(RM) -r $(LONDON)/*.gr
 
 $(LONDON)/raptor.csv:
 	$(RAPTOR) -query-file=queries-rank.csv -o=$(LONDON)/raptor.csv $(LONDON)/
