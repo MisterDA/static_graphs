@@ -72,17 +72,30 @@ def delay(dynamic, static):
 
 def plot_query(q, dyng, ming, maxg, avgg, show):
     tpdyn, tpmin, tpmax, tpavg = dyng[q], ming[q], maxg[q], avgg[q]
-    plt.hlines('y', 'xmin', 'xmax', data=tpdyn, label='dynamic')
-    plt.hlines('y', 'xmin', 'xmax', data=tpmin, color='r', label='minimum')
-    plt.hlines('y', 'xmin', 'xmax', data=tpmax, color='g', label='maximum')
-    plt.hlines('y', 'xmin', 'xmax', data=tpavg, color='b', label='average')
-    plt.ylabel('arrival time')
-    plt.xlabel('departure time')
+
+    plt.figure()
+    fig, axs = plt.subplots(nrows=1, ncols=3, sharex=True, sharey=True)
+
+    for i in range(3):
+        axs[i].hlines('y', 'xmin', 'xmax', data=tpdyn, label='dynamique',
+                      color='black', alpha=0.6)
+    axs[0].set_title("minimum")
+    axs[0].hlines('y', 'xmin', 'xmax', data=tpmin, label='minimum',
+               color='green', alpha=0.8)
+    axs[1].set_title("maximum")
+    axs[1].hlines('y', 'xmin', 'xmax', data=tpmax, label='maximum',
+               color='red', alpha=0.7)
+    axs[2].set_title("moyen")
+    axs[2].hlines('y', 'xmin', 'xmax', data=tpavg, label='moyen',
+               color='blue', alpha=0.6)
+    #plt.legend(loc='lower right')
+    plt.ylabel("Temps d'arrivée (s)")
+    plt.xlabel("Temps de départ (s)")
 
     delay_gmin = delay(tpdyn, tpmin)
     delay_gmax = delay(tpdyn, tpmax)
     delay_gavg = delay(tpdyn, tpavg)
-    plt.title("Query #{} delay min:({}, {}) max: ({}, {}) avg: ({}, {})"
+    fig.suptitle("Requête {} délai min:({}, {}) max: ({}, {}) moy: ({}, {})"
               .format(q,
                       delay_gmin['min'], delay_gmin['max'],
                       delay_gmax['min'], delay_gmax['max'],
@@ -90,8 +103,9 @@ def plot_query(q, dyng, ming, maxg, avgg, show):
     if show:
         plt.show()
     else:
-        plt.savefig("plots/{}.svg".format(q), format='svg')
-        plt.savefig("plots/{}.eps".format(q), format='eps', dpi=600)
+        # plt.savefig("plots/{}.svg".format(q), format='svg')
+        # plt.savefig("plots/{}.eps".format(q), format='eps', dpi=600)
+        plt.savefig("plots/{}.pdf".format(q), format='pdf')
     plt.clf()
 
 
@@ -114,6 +128,9 @@ def main():
     static_avg = read_timeprofiles(args.static_avg)
     print("Loading queries…")
     ranks, _ = read_queries(args.queries)
+
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif')
 
     if args.q:
         plot_query(args.q, dynamic, static_min, static_max, static_avg,
