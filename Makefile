@@ -8,9 +8,8 @@ QUERIES=queries-rank.csv
 T_BEGIN=25200
 T_END=32400
 
-OPTS=-min-change-time=$(MIN_CHANGE_TIME) -query-file=$(QUERIES) \
-     -beg=$(T_BEGIN) -end=$(T_END)
-
+OPTS=-min-change-time=$(MIN_CHANGE_TIME) -beg=$(T_BEGIN) -end=$(T_END)
+CMPOPTS=-query-file=$(QUERIES) $(OPTS)
 
 build: main hltrans simple_raptor
 
@@ -26,6 +25,7 @@ clean:
 plots: min max avg raptor
 	mkdir -p plots
 	pypy3 ./plotter.py			\
+		-delays $(LONDON)/delays.csv	\
 		$(LONDON)/raptor.csv		\
 		$(LONDON)/static_min_graph.tp	\
 		$(LONDON)/static_max_graph.tp 	\
@@ -47,7 +47,7 @@ $(LONDON)/static_min_graph.gr:
 $(LONDON)/static_min_graph.hl: $(LONDON)/static_min_graph.gr
 	$(HLTRANS) hubs-next-hop $< > $@
 $(LONDON)/static_min_graph.tp: $(LONDON)/static_min_graph.hl
-	$(MAIN) comparison $(OPTS) -fn min -o $@ -hl $< $(LONDON)/
+	$(MAIN) comparison $(CMPOPTS) -fn min -o $@ -hl $< $(LONDON)/
 min: build $(LONDON)/static_min_graph.tp
 
 $(LONDON)/static_max_graph.gr:
@@ -55,7 +55,7 @@ $(LONDON)/static_max_graph.gr:
 $(LONDON)/static_max_graph.hl: $(LONDON)/static_max_graph.gr
 	$(HLTRANS) hubs-next-hop $< > $@
 $(LONDON)/static_max_graph.tp: $(LONDON)/static_max_graph.hl
-	$(MAIN) comparison $(OPTS) -fn max -o $@ -hl $< $(LONDON)/
+	$(MAIN) comparison $(CMPOPTS) -fn max -o $@ -hl $< $(LONDON)/
 max: build $(LONDON)/static_max_graph.tp
 
 $(LONDON)/static_avg_graph.gr:
@@ -63,7 +63,7 @@ $(LONDON)/static_avg_graph.gr:
 $(LONDON)/static_avg_graph.hl: $(LONDON)/static_avg_graph.gr
 	$(HLTRANS) hubs-next-hop $< > $@
 $(LONDON)/static_avg_graph.tp: $(LONDON)/static_avg_graph.hl
-	$(MAIN) comparison $(OPTS) -fn avg -o $@ -hl $< $(LONDON)/
+	$(MAIN) comparison $(CMPOPTS) -fn avg -o $@ -hl $< $(LONDON)/
 avg: build $(LONDON)/static_avg_graph.tp
 
 clean_timeprofiles:
@@ -74,7 +74,7 @@ clean_graphs: clean_hubs
 	$(RM) -r $(LONDON)/*.gr
 
 $(LONDON)/raptor.csv:
-	$(RAPTOR) $(OPTS) -o=$(LONDON)/raptor.csv $(LONDON)/
+	$(RAPTOR) $(CMPOPTS) -o=$(LONDON)/raptor.csv $(LONDON)/
 raptor: $(LONDON)/raptor.csv
 clean_raptor:
 	$(RM) -r $(LONDON)/raptor.csv

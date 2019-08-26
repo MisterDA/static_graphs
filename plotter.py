@@ -67,10 +67,10 @@ def delay(dynamic, static):
         else:
             dyni += 1
             stati += 1
-    return {"min": delay_min, "max": delay_max}
+    return (delay_min, delay_max)
 
 
-def plot_query(q, dyng, ming, maxg, avgg, show):
+def plot_query(q, dyng, ming, maxg, avgg, show, delays, delaysf):
     tpdyn, tpmin, tpmax, tpavg = dyng[q], ming[q], maxg[q], avgg[q]
 
     plt.figure()
@@ -92,20 +92,43 @@ def plot_query(q, dyng, ming, maxg, avgg, show):
     plt.ylabel("Temps d'arrivée (s)")
     plt.xlabel("Temps de départ (s)")
 
-    delay_gmin = delay(tpdyn, tpmin)
-    delay_gmax = delay(tpdyn, tpmax)
-    delay_gavg = delay(tpdyn, tpavg)
-    fig.suptitle("Requête {} délai min:({}, {}) max: ({}, {}) moy: ({}, {})"
-              .format(q,
-                      delay_gmin['min'], delay_gmin['max'],
-                      delay_gmax['min'], delay_gmax['max'],
-                      delay_gavg['min'], delay_gavg['max']))
     if show:
         plt.show()
     else:
         # plt.savefig("plots/{}.svg".format(q), format='svg')
         # plt.savefig("plots/{}.eps".format(q), format='eps', dpi=600)
         plt.savefig("plots/{}.pdf".format(q), format='pdf')
+    plt.clf()
+
+    if delays is not None:
+        minmin, minmax = delay(tpdyn, tpmin)
+        delays["min"]['min'].append(minmin)
+        delays["min"]['max'].append(minmax)
+        maxmin, maxmax = delay(tpdyn, tpmax)
+        delays["max"]['min'].append(maxmin)
+        delays["max"]['max'].append(maxmax)
+        avgmin, avgmax = delay(tpdyn, tpavg)
+        delays["avg"]['min'].append(avgmin)
+        delays["avg"]['max'].append(avgmax)
+        delaysf.write("{},{},{},{},{},{},{}\n"
+                      .format(q, minmin, minmax, maxmin, maxmax, avgmin, avgmax))
+
+
+def plot_delays(delays):
+    plt.figure()
+    plt.plot(delays['min']['min'], '+')
+    plt.plot(delays['min']['max'], 'x')
+    plt.savefig("plots/delays_min.pdf", format='pdf')
+    plt.clf()
+    plt.figure()
+    plt.plot(delays['max']['min'], "+")
+    plt.plot(delays['max']['max'], "x")
+    plt.savefig("plots/delays_max.pdf", format='pdf')
+    plt.clf()
+    plt.figure()
+    plt.plot(delays['avg']['min'], "+")
+    plt.plot(delays['avg']['max'], "x")
+    plt.savefig("plots/delays_avg.pdf", format='pdf')
     plt.clf()
 
 
@@ -117,6 +140,7 @@ def main():
     parser.add_argument("static_avg")
     parser.add_argument("queries")
     parser.add_argument("-q", help="plot a specific query", type=int)
+    parser.add_argument("-delays", help="delays")
     parser.add_argument("-show", help="show the plots")
     args = parser.parse_args()
 
@@ -132,16 +156,32 @@ def main():
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')
 
+    delaysf = None
+    delays = None
+    if args.delays:
+        delaysf = open(args.delays, "w+")
+        delaysf.write("query,minmin,minmax,maxmin,maxmax,avgmin,avgmax\n")
+        delays = {
+            "min": {"min": [], "max": []},
+            "max": {"min": [], "max": []},
+            "avg": {"min": [], "max": []},
+        }
+
     if args.q:
         plot_query(args.q, dynamic, static_min, static_max, static_avg,
-                   args.show)
+                   args.show, delays, delaysf)
     else:
         for rank in range(1, 15):
-            for i in range(5):  # print the first 5 queries of each rank
+            for i in range(min(5,len(ranks[rank]))):  # print the first 5 queries of each rank
                 query = ranks[rank][i]['n']
                 print("Query #{}".format(query))
                 plot_query(query, dynamic, static_min, static_max, static_avg,
-                           args.show)
+                           args.show, delays, delaysf)
+
+
+    if delays is not None:
+        plot_delays(delays)
+        delaysf.close()
 
 
 if __name__ == '__main__':
