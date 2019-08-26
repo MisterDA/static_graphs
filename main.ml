@@ -21,11 +21,11 @@ let main () =
       begin
         sub := false;
         let common = [("-o", Arg.Set_string output, "<file> output time profiles");
-                      ("-chg", Arg.Set_int min_change_time, "<int> minimum change time");
+                      ("-min-change-time", Arg.Set_int min_change_time, "<int> minimum change time");
                       ("-gv", Arg.Set_string gv, "<file> output GraphViz");
                       ("-fn", Arg.Set_string fn, "<min|max|avg> edges function");
-                      ("-start", Arg.Set_int start, "<time> minimum event time");
-                      ("-finish", Arg.Set_int finish, "<time> maximum event time");
+                      ("-beg", Arg.Set_int start, "<time> minimum event time");
+                      ("-end", Arg.Set_int finish, "<time> maximum event time");
                      ] in
         match arg with
         | "static_graph" ->
@@ -33,7 +33,7 @@ let main () =
            subcommand := Some SubStatic_graph
         | "comparison" ->
            speclist :=  ("-hl", Arg.Set_string hubs, "<file> hub labeling file")
-                        :: ("-q", Arg.Set_string queries, "<file> queries file")
+                        :: ("-query-file", Arg.Set_string queries, "<file> queries file")
                         :: ("-nq", Arg.Set_int nq, "<int> number of queries")
                         :: common;
            subcommand := Some SubComparison
@@ -54,6 +54,8 @@ let main () =
   | Some c ->
      if !output = "" then failwith "Did not specify output file.";
      if !gtfs_dir = "" then failwith "Did not specify gtfs directory.";
+     if !start = min_int then failwith "Did not specify the starting time";
+     if !finish = max_int then failwith "Did not specify the finish time";
      let fn = Static_graph.(if !fn = "min" then Min
                             else if !fn = "max" then Max
                             else if !fn = "avg" then Avg
@@ -73,15 +75,14 @@ let main () =
         let hubs = Static_graph.hl_input smg !hubs in
         print_endline "Hubs loaded.";
         Gc.compact ();
-        let f = Static_graph.comparison smg hubs in
         let oc = open_out !output in
         output_string oc "query,edt,ldt,eat\n";
         let n = ref 1 in
         print_endline "Starting…";
         let aux = function
-          | [src; dst; deptime; _; _; _] ->
+          | [src; dst; _; _; _; _] ->
              Printf.printf "Query #%d: " !n; flush stdout;
-             begin try f oc (string_of_int !n) (src, dst) (int_of_string deptime);
+             begin try Static_graph.comparison smg hubs oc (string_of_int !n) (src, dst) (!start, !finish);
              with Static_graph.No_common_hub ->
                prerr_endline "No common hub found.";
                Printf.fprintf oc "%d,0,0,0\n" !n

@@ -265,7 +265,7 @@ let hl_input smg path : hubs * hubs =
  *   Hashtbl.iter (print_inhubs oc smg) inhubs;
  *   Hashtbl.iter (print_outhubs oc smg) outhubs *)
 
-let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
+let comparison smg (outhubs, inhubs) oc prefix (src, dst) (start, finish) =
   let src, dst = int_of_string src, int_of_string dst in
   let (src, _) = Vector.get smg.vertices src in
   let (dst, _) = Vector.get smg.vertices dst in
@@ -289,16 +289,23 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
     | Some outlabel, Some inlabel -> outlabel, inlabel
   in
 
+  let find_label vec hub =
+    let i = Option.get (Vector.find vec (fun hl -> hl.hub = hub)) in
+    Vector.get vec i
+  in
+
   let build_path src dst =
-    let rec aux src dst =
-      let outlbl, inlbl = reachability src dst in
-      let hub = outlbl.hub in
-      [src]
-      @ (if outlbl.next_hop <> hub then aux outlbl.next_hop hub else [])
-      @ (if inlbl.hub <> inlbl.next_hop then aux hub inlbl.next_hop else [])
-      @ [dst]
+    let outlbl, inlbl = reachability src dst in
+    assert (outlbl.hub = inlbl.hub);
+    let hub = outlbl.hub in
+    let rec push path lbl hubs =
+      if lbl.next_hop <> hub then
+        let nh = find_label (Hashtbl.find hubs lbl.next_hop) hub in
+        push (lbl.next_hop :: path) nh hubs
+      else path
     in
-    List.unique (aux src dst)
+    List.rev_append (push [src] outlbl outhubs)
+      (hub :: (push [dst] inlbl inhubs))
   in
 
   let is_station v = v < Option.get smg.max_station in
@@ -387,18 +394,19 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
   print_string " done! Building time profile…"; flush stdout;
 
   let rec build_time_profile (ldt', eat') deptime edt =
-    Option.(fold (earliest_arrival_time (get smg.ttbl) tp deptime)
-              ~none:() ~some:(fun eat ->
-                fold (last_departure_time (get smg.ttbl) tp_rev eat)
-                  ~none:() ~some:(fun ldt ->
-                    if not (eat' = eat && ldt = ldt') then begin
-                        output_string oc prefix;
-                        Printf.fprintf oc ",%d,%d,%d\n" edt ldt eat;
-                        build_time_profile (ldt, eat) (ldt+1) ldt
-                      end)))
+    match earliest_arrival_time (Option.get smg.ttbl) tp deptime with
+    | None -> ()
+    | Some eat ->
+       match last_departure_time (Option.get smg.ttbl) tp_rev eat with
+       | None -> ()
+       | Some ldt when not (eat' = eat && ldt = ldt') ->
+          output_string oc prefix;
+          Printf.fprintf oc ",%d,%d,%d\n" edt ldt eat;
+          if ldt <= finish then build_time_profile (ldt, eat) (ldt+1) ldt
+       | _ -> ()
   in
 
-  let eat = earliest_arrival_time (Option.get smg.ttbl) tp deptime in
+  let eat = earliest_arrival_time (Option.get smg.ttbl) tp start in
   if !is_simple && Option.is_some eat then
     begin
       print_string " simple path"; flush stdout;
@@ -406,5 +414,5 @@ let comparison smg (outhubs, inhubs) oc prefix (src, dst) deptime =
       Printf.fprintf oc ",0,0,%d\n" (Option.get eat)
     end
   else
-    build_time_profile (-1, -1) deptime deptime;
+    build_time_profile (-1, -1) start start;
   print_endline " done!"
