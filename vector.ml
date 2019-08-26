@@ -96,6 +96,14 @@ let lower_bound vec first last p =
   done;
   !first
 
+let find vec p =
+  let rec aux i =
+    if i < vec.len then
+      if p vec.data.(i) then Some i else aux (i+1)
+    else None
+  in
+  aux 0
+
 let find_first vec first p =
   let p = fun v -> not (p v) in
   if p vec.data.(vec.len - 1) then None

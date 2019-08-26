@@ -13,6 +13,7 @@ val map : ('a -> 'b) -> 'a t -> 'b t
 val fold_left : ('a -> 'b -> 'a) -> 'a -> 'b t -> 'a
 val fold_left2 : ('a -> 'b -> 'c -> 'a) -> 'a -> 'b t -> 'c t -> 'a
 
+val find : 'a t -> ('a -> bool) -> int option
 val find_first : 'a t -> int -> ('a -> bool) -> int option
 val find_last : 'a t -> int -> ('a -> bool) -> int option
 
