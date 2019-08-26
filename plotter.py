@@ -73,32 +73,60 @@ def delay(dynamic, static):
 def plot_query(q, dyng, ming, maxg, avgg, show, delays, delaysf):
     tpdyn, tpmin, tpmax, tpavg = dyng[q], ming[q], maxg[q], avgg[q]
 
-    plt.figure()
-    fig, axs = plt.subplots(nrows=1, ncols=3, sharex=True, sharey=True)
+    #plt.figure(figsize=(8,11))
+    # fig, axs = plt.subplots(nrows=3, ncols=1, sharex=True, sharey=True, gridspec_kw={'width_ratios': [1], 'height_ratios': [1, 1, 1]})
 
-    for i in range(3):
-        axs[i].hlines('y', 'xmin', 'xmax', data=tpdyn, label='dynamique',
-                      color='black', alpha=0.6)
-    axs[0].set_title("minimum")
-    axs[0].hlines('y', 'xmin', 'xmax', data=tpmin, label='minimum',
-               color='green', alpha=0.8)
-    axs[1].set_title("maximum")
-    axs[1].hlines('y', 'xmin', 'xmax', data=tpmax, label='maximum',
-               color='red', alpha=0.7)
-    axs[2].set_title("moyen")
-    axs[2].hlines('y', 'xmin', 'xmax', data=tpavg, label='moyen',
-               color='blue', alpha=0.6)
-    #plt.legend(loc='lower right')
+    # for i in range(3):
+    #     axs[i].hlines('y', 'xmin', 'xmax', data=tpdyn, label='dynamique',
+    #                   color='black', alpha=0.6)
+    # axs[0].set_title("minimum")
+    # axs[0].hlines('y', 'xmin', 'xmax', data=tpmin, label='minimum',
+    #            color='green', alpha=0.8)
+    # axs[1].set_title("maximum")
+    # axs[1].hlines('y', 'xmin', 'xmax', data=tpmax, label='maximum',
+    #            color='red', alpha=0.7)
+    # axs[2].set_title("moyen")
+    # axs[2].hlines('y', 'xmin', 'xmax', data=tpavg, label='moyen',
+    #            color='blue', alpha=0.6)
+    # #plt.legend(loc='lower right')
+    # plt.ylabel("Temps d'arrivée (s)")
+    # plt.xlabel("Temps de départ (s)")
+
     plt.ylabel("Temps d'arrivée (s)")
     plt.xlabel("Temps de départ (s)")
+    plt.hlines('y', 'xmin', 'xmax', data=tpdyn, label='dynamique',
+               color='black', alpha=0.8)
+    plt.hlines('y', 'xmin', 'xmax', data=tpmin, label='minimum',
+               color='green', alpha=0.8)
+    plt.savefig("plots/{}_min.pdf".format(q), format='pdf')
+    plt.clf()
+
+    plt.ylabel("Temps d'arrivée (s)")
+    plt.xlabel("Temps de départ (s)")
+    plt.hlines('y', 'xmin', 'xmax', data=tpmax, label='maximum',
+               color='red', alpha=0.8)
+    plt.hlines('y', 'xmin', 'xmax', data=tpdyn, label='dynamique',
+               color='black', alpha=0.8)
+    plt.savefig("plots/{}_max.pdf".format(q), format='pdf')
+    plt.clf()
+
+    plt.ylabel("Temps d'arrivée (s)")
+    plt.xlabel("Temps de départ (s)")
+    plt.hlines('y', 'xmin', 'xmax', data=tpavg, label='moyen',
+               color='blue', alpha=0.8)
+    plt.hlines('y', 'xmin', 'xmax', data=tpdyn, label='dynamique',
+               color='black', alpha=0.8)
+    plt.savefig("plots/{}_avg.pdf".format(q), format='pdf')
+    plt.clf()
+
 
     if show:
         plt.show()
     else:
         # plt.savefig("plots/{}.svg".format(q), format='svg')
         # plt.savefig("plots/{}.eps".format(q), format='eps', dpi=600)
-        plt.savefig("plots/{}.pdf".format(q), format='pdf')
-    plt.clf()
+        # plt.savefig("plots/{}.pdf".format(q), format='pdf')
+        pass
 
     if delays is not None:
         minmin, minmax = delay(tpdyn, tpmin)

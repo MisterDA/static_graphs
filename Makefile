@@ -5,8 +5,9 @@ LONDON=../files.inria.fr/London
 
 MIN_CHANGE_TIME=0
 QUERIES=queries-rank.csv
-T_BEGIN=25200
-T_END=32400
+T_BEGIN=25200			# 07:00
+T_END=32400			# 09:00
+# T_END=68400			# 19:00
 
 OPTS=-min-change-time=$(MIN_CHANGE_TIME) -beg=$(T_BEGIN) -end=$(T_END)
 CMPOPTS=-query-file=$(QUERIES) $(OPTS)
